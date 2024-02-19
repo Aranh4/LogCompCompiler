@@ -1,58 +1,82 @@
 import sys
 
-import sys
+class Token:
+    def __init__(self, type, value):
+        self.type = type
+        self.value = value
 
-def aplicaoperacao(listanumeros, listaoperadores):
-    dictoperadores = {"+": lambda x, y: x + y, "-": lambda x, y: x - y}
-    result = listanumeros[0]
-    for i in range(0, len(listaoperadores)):
-        result = dictoperadores[listaoperadores[i]](result, listanumeros[i+1])
-    return result
+class Tokenizer:
+    def __init__(self, source, position, next):
+        self.source = source
+        self.position = position
+        self.next = next
 
-def main(args):
-    operandos = ['+', '-']
-    listanumeros = []
-    listaoperadores = []
-    last= ""
-    number = ""
-    temespaco = False
-    if len(args) == 0:
-        return "No arguments given"
-    for c in args[0]:
-        if (c != "+" and c != "-" and not temespaco) or c == " ":
-            if c == " ":
-                if number != "":
-                    temespaco = True
-                continue
-            number += c
-
-        
-        
-        elif c in operandos:
-            temespaco = False
-            listanumeros.append(int(number))
-            
-            number = ""
-            listaoperadores.append(c)
-
+    def selectNext(self):
+        if self.position >= len(self.source):
+            return Token("EOF", "")
         else:
-            sys.stderr.write("Error: invalid input")
-            return
+            if self.source[self.position] == "+":
+                self.position += 1
+                return Token("PLUS", "+")
+            if self.source[self.position] == "-":
+                self.position += 1
+                return Token("MINUS", "-")
+            if self.source[self.position].isdigit():
+                start = self.position
+                while self.position < len(self.source) and self.source[self.position].isdigit():
+                    self.position += 1
+                return Token("INT", self.source[start:self.position])
+            elif self.source[self.position] == " ":
+                self.position += 1
+                return self.selectNext()
         
-    listanumeros.append(int(number))
-         
-    resultado = aplicaoperacao(listanumeros, listaoperadores)
-   
             
-
-       
+class Parser:
+    def __init__(self, tokenizer):
+        self.tokenizer = tokenizer
         
 
-    return resultado
+    def parse(self):
+        token = self.tokenizer.selectNext()
+        res = 0
+        if token.type == "INT":
+            res = int(token.value)
+            token = self.tokenizer.selectNext()
+            while token.type == "PLUS" or token.type == "MINUS":
+                if token.type == "PLUS":
+                    token = self.tokenizer.selectNext()
+                    if token.type == "INT":
+                        res += int(token.value)
+                        token = self.tokenizer.selectNext()
+                    else:
+                        raise Exception("token invalido")
+                elif token.type == "MINUS":
+                    token = self.tokenizer.selectNext()
+                    if token.type == "INT":
+                        res -= int(token.value)
+                        token = self.tokenizer.selectNext()
+                    else:
+                        raise Exception("token invalido")
+            if token.type != "EOF":
+                raise Exception("token invalido")
+            else:
+                print(res)
+
+        return res
+
+    def run(code):
+        tokenizer = Tokenizer(code, 0, None)
+        parser = Parser(tokenizer)
+        return parser
+
+            
+def main():
+    code = sys.argv[1]
+    parser = Parser.run(code)
+    parser.parse()
 
 if __name__ == "__main__":
-    args = sys.argv[1:]
-    print(main(args))
+    main()
+
 
     
-        
