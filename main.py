@@ -36,7 +36,7 @@ class Parser:
         self.tokenizer = tokenizer
         
 
-    def parse(self):
+    def parseExpression(self):
         token = self.tokenizer.selectNext()
         res = 0
         if token.type == "INT":
@@ -67,7 +67,7 @@ class Parser:
     def run(code):
         tokenizer = Tokenizer(code, 0, None)
         parser = Parser(tokenizer)
-        return parser
+        return parser.parseExpression()
 
             
 def main():
