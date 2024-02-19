@@ -49,16 +49,16 @@ class Parser:
                         res += int(token.value)
                         token = self.tokenizer.selectNext()
                     else:
-                        raise Exception("token invalido")
+                        sys.stderr.write("token invalido")
                 elif token.type == "MINUS":
                     token = self.tokenizer.selectNext()
                     if token.type == "INT":
                         res -= int(token.value)
                         token = self.tokenizer.selectNext()
                     else:
-                        raise Exception("token invalido")
+                        sys.stderr.write("token invalido")
             if token.type != "EOF":
-                raise Exception("token invalido")
+                sys.stderr.write("token invalido")
             else:
                 print(res)
 
@@ -73,7 +73,9 @@ class Parser:
 def main():
     code = sys.argv[1]
     parser = Parser.run(code)
-    parser.parse()
+    sys.stdout.write(str(parser))
+
+    
 
 if __name__ == "__main__":
     main()
