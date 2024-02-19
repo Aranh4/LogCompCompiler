@@ -59,8 +59,9 @@ class Parser:
                         sys.stderr.write("token invalido")
             if token.type != "EOF":
                 sys.stderr.write("token invalido")
-            else:
-                print(res)
+           
+        else:
+            sys.stderr.write("token invalido") 
 
         return res
 
