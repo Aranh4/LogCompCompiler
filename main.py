@@ -211,7 +211,7 @@ def main():
             code = file.read()
 
     parser = Parser.run(code)
-    resultado = parser.evaluate()
+    resultado = int(parser.evaluate())
     sys.stdout.write(str(resultado))
 
     
