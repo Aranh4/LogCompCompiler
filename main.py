@@ -1,4 +1,72 @@
+from abc import abstractmethod
 import sys
+
+
+
+class PrePro:
+    @staticmethod
+    def filter(code):
+        res = code
+        for i in range(len(code)):
+            if code[i] =='-':
+                if code[i+1] == '-':
+                    #ignore everything after --
+                    res = code[:i]
+                    break
+        return res
+
+class Node():
+    def __init__(self, value, children = None):
+        self.value = value
+        self.children = children if children is not None else []
+
+
+
+    @abstractmethod
+    def evaluate(self):
+        pass
+
+
+class BinOp(Node):
+    def __init__(self, value, children):
+        super().__init__(value, children)
+
+
+    def evaluate(self):
+        if self.value == '+':
+            return self.children[0].evaluate() + self.children[1].evaluate()
+        elif self.value == '-':
+            return self.children[0].evaluate() - self.children[1].evaluate()
+        elif self.value == '*':
+            return self.children[0].evaluate() * self.children[1].evaluate()
+        elif self.value == '/':
+            return self.children[0].evaluate() / self.children[1].evaluate()
+        
+class UnOp(Node):
+    def __init__(self, value, children):
+        super().__init__(value, children)
+
+    def evaluate(self):
+        if self.value == '+':
+            return self.children[0].evaluate()
+        elif self.value == '-':
+            return -self.children[0].evaluate()
+        
+class IntVal(Node):
+    def __init__(self, value):
+        super().__init__(value)
+    def evaluate(self):
+        return int(self.value)
+    
+class NoOp(Node):
+    def __init__(self):
+        super().__init__(None, None)
+
+    def evaluate(self):
+        pass
+    
+
+
 
 class Token:
     def __init__(self, type, value):
@@ -49,13 +117,13 @@ class Parser:
 
     @staticmethod
     def parseFactor(TOKENIZER):
-        res = 0
+        
         if TOKENIZER.next.type == "INT":
-            res = int(TOKENIZER.next.value)
+            res = IntVal(TOKENIZER.next.value)
             next = TOKENIZER.selectNext()
         elif TOKENIZER.next.type == "LPAREN":
             
-            res = Parser.parseExpression(TOKENIZER=TOKENIZER)
+            res = Parser.parseExpression(TOKENIZER)
             if TOKENIZER.next.type != "RPAREN":
 
                 sys.stderr.write("token invalido, esperado: RParen, recebido: " + TOKENIZER.next.type + "\n")
@@ -64,10 +132,10 @@ class Parser:
   
         elif TOKENIZER.next.type == "PLUS":
             next = TOKENIZER.selectNext()
-            res = Parser.parseFactor(TOKENIZER=TOKENIZER)
+            res = UnOp("+", [Parser.parseFactor(TOKENIZER)])
         elif TOKENIZER.next.type == "MINUS":
             next = TOKENIZER.selectNext()
-            res = -Parser.parseFactor(TOKENIZER=TOKENIZER)
+            res = UnOp("-", [Parser.parseFactor(TOKENIZER)])
         else:
             sys.stderr.write("token invalido8")
         return res
@@ -76,55 +144,54 @@ class Parser:
     def parseTerm (TOKENIZER):
         
 
-        res = Parser.parseFactor(TOKENIZER=TOKENIZER)
+        res = Parser.parseFactor(TOKENIZER)
        
         
         while TOKENIZER.next.type == "MULT" or TOKENIZER.next.type == "DIV":
             if TOKENIZER.next.type == "MULT":
                 next = TOKENIZER.selectNext()
                 if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS":
-                    res *= Parser.parseFactor(TOKENIZER=TOKENIZER)
+                    res = BinOp("*", [res, Parser.parseFactor(TOKENIZER)])
+                    #res *= Parser.parseFactor(TOKENIZER)
                 
                 else:
                     sys.stderr.write("token invalido1")
             elif TOKENIZER.next.type == "DIV":
                 next = TOKENIZER.selectNext()
                 if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS":
-                    res /= Parser.parseFactor(TOKENIZER=TOKENIZER)
+                    #res /= Parser.parseFactor(TOKENIZER)
+                    res = BinOp("/", [res, Parser.parseFactor(TOKENIZER)])
                    
                 else:
                     sys.stderr.write("token invalido2")
         
   
-        return int(res)
+        return res
 
     @staticmethod
     def parseExpression(TOKENIZER):
         next = TOKENIZER.selectNext()
-        res = Parser.parseTerm(TOKENIZER=TOKENIZER)
+        res = Parser.parseTerm(TOKENIZER)
         while TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS":
         
             if TOKENIZER.next.type == "PLUS":
                 next = TOKENIZER.selectNext()
                 if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS":
-                    res += Parser.parseTerm(TOKENIZER=TOKENIZER)
+                    res = BinOp("+", [res, Parser.parseTerm(TOKENIZER)])
                     
                 else:
                     sys.stderr.write("token invalido4")
             elif TOKENIZER.next.type == "MINUS":
                 next = TOKENIZER.selectNext()
                 if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS":
-                    res -= Parser.parseTerm(TOKENIZER=TOKENIZER)
+                    res = BinOp("-", [res, Parser.parseTerm(TOKENIZER)])
                  
                 else:
                     sys.stderr.write("token invalido5")
-       
-           
-
-
         return res
 
     def run(code):
+        code = PrePro.filter(code)
         tokenizer = Tokenizer(code, 0, None)
         parser = Parser(tokenizer)
         result = parser.parseExpression(TOKENIZER=tokenizer)
@@ -136,9 +203,16 @@ class Parser:
 
             
 def main():
-    code = sys.argv[1]
+
+    filename = sys.argv[1]
+
+    if filename.endswith('.lua'):
+        with open(filename, 'r') as file:
+            code = file.read()
+
     parser = Parser.run(code)
-    sys.stdout.write(str(parser))
+    resultado = parser.evaluate()
+    sys.stdout.write(str(resultado))
 
     
 
