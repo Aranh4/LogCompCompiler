@@ -1,19 +1,28 @@
 from abc import abstractmethod
 import sys
 
-
+class SymbolTable:
+    def __init__(self):
+        self.symbols = {}
+    
+    def add(self, symbol, value):
+        self.symbols[symbol] = value
+    
+    def get(self, symbol):
+        return self.symbols[symbol]
 
 class PrePro:
     @staticmethod
     def filter(code):
         res = code
         for i in range(len(code)):
-            if code[i] =='-':
+            if i < len(code) and code[i] =='-':     # rest of the code
                 if code[i+1] == '-':
-                    #ignore everything after --
-                    res = code[:i]
-                    break
-        return res
+                    for j in range(i, len(code)):
+                        if code[j] == '\n':
+                            code = code[:i] + code[j:]
+                            break
+        return code
 
 class Node():
     def __init__(self, value, children = None):
@@ -32,38 +41,68 @@ class BinOp(Node):
         super().__init__(value, children)
 
 
-    def evaluate(self):
+    def evaluate(self,ST):
         if self.value == '+':
-            return self.children[0].evaluate() + self.children[1].evaluate()
+            return self.children[0].evaluate(ST) + self.children[1].evaluate(ST)
         elif self.value == '-':
-            return self.children[0].evaluate() - self.children[1].evaluate()
+            return self.children[0].evaluate(ST) - self.children[1].evaluate(ST)
         elif self.value == '*':
-            return self.children[0].evaluate() * self.children[1].evaluate()
+            return self.children[0].evaluate(ST) * self.children[1].evaluate(ST)
         elif self.value == '/':
-            return self.children[0].evaluate() / self.children[1].evaluate()
+            return self.children[0].evaluate(ST) / self.children[1].evaluate()
         
 class UnOp(Node):
     def __init__(self, value, children):
         super().__init__(value, children)
 
-    def evaluate(self):
+    def evaluate(self,ST):
         if self.value == '+':
-            return self.children[0].evaluate()
+            return self.children[0].evaluate(ST)
         elif self.value == '-':
-            return -self.children[0].evaluate()
+            return -self.children[0].evaluate(ST)
         
 class IntVal(Node):
     def __init__(self, value):
         super().__init__(value)
-    def evaluate(self):
+    def evaluate(self,ST):
         return int(self.value)
     
 class NoOp(Node):
     def __init__(self):
         super().__init__(None, None)
 
-    def evaluate(self):
+    def evaluate(self,ST):
         pass
+
+class Print(Node):
+    def __init__(self, value, children):
+        super().__init__(value, children)
+
+    def evaluate(self,ST):
+        print(self.children[0].evaluate(ST))
+        
+
+class Assign(Node):
+    def __init__(self, value, children):
+        super().__init__(value, children)
+
+    def evaluate(self,ST):
+        ST.add(self.children[0].value, self.children[1].evaluate(ST))
+
+class Identifier(Node):
+    def __init__(self, value):
+        super().__init__(value)
+
+    def evaluate(self,ST):
+        return ST.get(self.value)
+
+class Block(Node):
+    def __init__(self, value, children):
+        super().__init__(value, children)
+
+    def evaluate(self, ST):
+        for child in self.children:
+            child.evaluate(ST)
     
 
 
@@ -108,12 +147,75 @@ class Tokenizer:
                 self.next = Token("RPAREN", ")")
             elif self.source[self.position] == " ":
                 self.position += 1
-                self.selectNext()
+                self.selectNext()    
+            elif self.source[self.position].isalpha():
+                start = self.position
+                while self.source[self.position].isalpha() or self.source[self.position].isdigit() or self.source[self.position] == "_":
+                    self.position += 1
+                if self.source[start:self.position] == "print":
+                    self.next = Token("PRINT", "print")
+                else:
+                   self.next = Token("IDENT", self.source[start:self.position])
+            elif self.source[self.position] == "\n":
+                self.position += 1
+                self.next = Token("NEWLINE", "\n")
+            elif self.source[self.position] == "=":
+                self.position += 1
+                self.next = Token("EQUAL", "=")	
+            
         
             
 class Parser:
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
+
+    @staticmethod
+    def parseBlock(TOKENIZER):
+        res = Block("block", [])
+        next = TOKENIZER.selectNext()
+        while TOKENIZER.next.type != "EOF":
+            parsed = Parser.parseStatement(TOKENIZER)
+            res.children.append(parsed)
+          
+        return res
+
+
+    @staticmethod
+    def parseStatement(TOKENIZER):
+        if TOKENIZER.next.type == "IDENT":
+            res = Assign("=", [Identifier(TOKENIZER.next.value)])
+            next = TOKENIZER.selectNext()
+            if TOKENIZER.next.type != "EQUAL":
+                sys.stderr.write("token invalido, esperado: EQUAL, recebido: " + TOKENIZER.next.type + "\n")
+            else:
+                next = TOKENIZER.selectNext()
+                res.children.append(Parser.parseExpression(TOKENIZER))
+            
+            
+            if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
+                sys.stderr.write("token invalido, esperado: NEWLINE1, recebido: " + TOKENIZER.next.type + "\n")
+        elif TOKENIZER.next.type == "PRINT":
+            next = TOKENIZER.selectNext()
+            if TOKENIZER.next.type == "LPAREN":
+                next = TOKENIZER.selectNext()
+                res = Print("print", [Parser.parseExpression(TOKENIZER)])
+                if TOKENIZER.next.type != "RPAREN":
+                    sys.stderr.write("token invalido, esperado: RParen, recebido: " + TOKENIZER.next.type + "\n")
+                else:
+                    next = TOKENIZER.selectNext()
+            else:
+                sys.stderr.write("token invalido, esperado: LParen, recebido: " + TOKENIZER.next.type + "\n")
+            next = TOKENIZER.selectNext()
+            if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
+                sys.stderr.write("token invalido, esperado: NEWLINE2, recebido: " + TOKENIZER.next.type + "\n")
+        elif TOKENIZER.next.type == "NEWLINE":
+            res = NoOp()
+            next = TOKENIZER.selectNext()
+
+        else:
+            sys.stderr.write("token invalido, esperado: IDENT, PRINT, NEWLINE, recebido: " + TOKENIZER.next.type + "\n")
+
+        return res
 
     @staticmethod
     def parseFactor(TOKENIZER):
@@ -129,15 +231,18 @@ class Parser:
                 sys.stderr.write("token invalido, esperado: RParen, recebido: " + TOKENIZER.next.type + "\n")
             else:
                 next = TOKENIZER.selectNext()
-  
         elif TOKENIZER.next.type == "PLUS":
             next = TOKENIZER.selectNext()
             res = UnOp("+", [Parser.parseFactor(TOKENIZER)])
         elif TOKENIZER.next.type == "MINUS":
             next = TOKENIZER.selectNext()
             res = UnOp("-", [Parser.parseFactor(TOKENIZER)])
+        elif TOKENIZER.next.type == "IDENT":
+            res = Identifier(TOKENIZER.next.value)
+            next = TOKENIZER.selectNext()
         else:
-            sys.stderr.write("token invalido8")
+            sys.stderr.write("1token invalido, esperado: INT, LParen, PLUS, MINUS, IDENT, recebido: " + TOKENIZER.next.type + "\n")
+            res =0
         return res
 
     @staticmethod
@@ -170,31 +275,31 @@ class Parser:
 
     @staticmethod
     def parseExpression(TOKENIZER):
-        next = TOKENIZER.selectNext()
+       
         res = Parser.parseTerm(TOKENIZER)
         while TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS":
         
             if TOKENIZER.next.type == "PLUS":
                 next = TOKENIZER.selectNext()
-                if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS":
+                if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS" or TOKENIZER.next.type == "IDENT":
                     res = BinOp("+", [res, Parser.parseTerm(TOKENIZER)])
                     
                 else:
-                    sys.stderr.write("token invalido4")
+                    sys.stderr.write("2token invalido esperado: INT, LPAREN, PLUS, MINUS, recebido: " + TOKENIZER.next.type + "\n")
             elif TOKENIZER.next.type == "MINUS":
                 next = TOKENIZER.selectNext()
-                if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS":
+                if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS" or TOKENIZER.next.type == "IDENT":
                     res = BinOp("-", [res, Parser.parseTerm(TOKENIZER)])
                  
                 else:
-                    sys.stderr.write("token invalido5")
+                    sys.stderr.write("3token invalido esperado: INT, LPAREN, PLUS, MINUS, recebido: " + TOKENIZER.next.type + "\n")
         return res
 
     def run(code):
         code = PrePro.filter(code)
         tokenizer = Tokenizer(code, 0, None)
         parser = Parser(tokenizer)
-        result = parser.parseExpression(TOKENIZER=tokenizer)
+        result = parser.parseBlock(TOKENIZER=tokenizer)
         if parser.tokenizer.next.type != "EOF":
             
             sys.stderr.write("token invalido, esperado: EOF, recebido: " + parser.tokenizer.next.type + "\n")
@@ -209,10 +314,11 @@ def main():
     if filename.endswith('.lua'):
         with open(filename, 'r') as file:
             code = file.read()
-
+    
     parser = Parser.run(code)
-    resultado = int(parser.evaluate())
-    sys.stdout.write(str(resultado))
+    ST = SymbolTable()
+    resultado = parser.evaluate(ST)
+    
 
     
 
