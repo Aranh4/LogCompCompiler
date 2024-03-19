@@ -162,6 +162,10 @@ class Tokenizer:
             elif self.source[self.position] == "=":
                 self.position += 1
                 self.next = Token("EQUAL", "=")	
+            else:
+                sys.stderr.write("token invalido, posicao: " + str(self.position) + "\n")
+                self.position += 1
+                self.selectNext()
             
         
             
