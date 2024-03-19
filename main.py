@@ -205,7 +205,7 @@ class Parser:
                     next = TOKENIZER.selectNext()
             else:
                 sys.stderr.write("token invalido, esperado: LParen, recebido: " + TOKENIZER.next.type + "\n")
-            next = TOKENIZER.selectNext()
+            #next = TOKENIZER.selectNext()
             if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
                 sys.stderr.write("token invalido, esperado: NEWLINE2, recebido: " + TOKENIZER.next.type + "\n")
         elif TOKENIZER.next.type == "NEWLINE":
