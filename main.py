@@ -79,7 +79,7 @@ class Print(Node):
         super().__init__(value, children)
 
     def evaluate(self,ST):
-        print(self.children[0].evaluate(ST))
+        print(int(self.children[0].evaluate(ST)))
         
 
 class Assign(Node):
