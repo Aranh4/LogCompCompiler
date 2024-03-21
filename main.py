@@ -49,7 +49,7 @@ class BinOp(Node):
         elif self.value == '*':
             return self.children[0].evaluate(ST) * self.children[1].evaluate(ST)
         elif self.value == '/':
-            return self.children[0].evaluate(ST) / self.children[1].evaluate()
+            return self.children[0].evaluate(ST) / self.children[1].evaluate(ST)
         
 class UnOp(Node):
     def __init__(self, value, children):
