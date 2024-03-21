@@ -223,16 +223,14 @@ class Parser:
 
     @staticmethod
     def parseFactor(TOKENIZER):
-        
         if TOKENIZER.next.type == "INT":
             res = IntVal(TOKENIZER.next.value)
             next = TOKENIZER.selectNext()
         elif TOKENIZER.next.type == "LPAREN":
-            
+            next = TOKENIZER.selectNext()
             res = Parser.parseExpression(TOKENIZER)
             if TOKENIZER.next.type != "RPAREN":
-
-                sys.stderr.write("token invalido, esperado: RParen, recebido: " + TOKENIZER.next.type + "\n")
+                sys.stderr.write("Syntax error: Unmatched parentheses\n")
             else:
                 next = TOKENIZER.selectNext()
         elif TOKENIZER.next.type == "PLUS":
@@ -245,9 +243,10 @@ class Parser:
             res = Identifier(TOKENIZER.next.value)
             next = TOKENIZER.selectNext()
         else:
-            sys.stderr.write("1token invalido, esperado: INT, LParen, PLUS, MINUS, IDENT, recebido: " + TOKENIZER.next.type + "\n")
-            res =0
+            sys.stderr.write("Syntax error: Invalid token at factor\n")
+            res = NoOp() 
         return res
+
 
     @staticmethod
     def parseTerm (TOKENIZER):
