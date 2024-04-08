@@ -50,6 +50,18 @@ class BinOp(Node):
             return self.children[0].evaluate(ST) * self.children[1].evaluate(ST)
         elif self.value == '/':
             return self.children[0].evaluate(ST) / self.children[1].evaluate(ST)
+        elif self.value == '>':
+            return self.children[0].evaluate(ST) > self.children[1].evaluate(ST)
+        elif self.value == '<':
+            return self.children[0].evaluate(ST) < self.children[1].evaluate(ST)
+        elif self.value == '==':
+            return self.children[0].evaluate(ST) == self.children[1].evaluate(ST)
+        elif self.value == 'or':
+            return self.children[0].evaluate(ST) or self.children[1].evaluate(ST)
+        elif self.value == 'and':
+            return self.children[0].evaluate(ST) and self.children[1].evaluate(ST)
+        
+
         
 class UnOp(Node):
     def __init__(self, value, children):
@@ -60,6 +72,8 @@ class UnOp(Node):
             return self.children[0].evaluate(ST)
         elif self.value == '-':
             return -self.children[0].evaluate(ST)
+        elif self.value == 'not':
+            return not self.children[0].evaluate(ST) 
         
 class IntVal(Node):
     def __init__(self, value):
@@ -73,6 +87,9 @@ class NoOp(Node):
 
     def evaluate(self,ST):
         pass
+
+
+
 
 class Print(Node):
     def __init__(self, value, children):
@@ -103,6 +120,32 @@ class Block(Node):
     def evaluate(self, ST):
         for child in self.children:
             child.evaluate(ST)
+
+class whileNode(Node):
+    def __init__(self, value, children):
+        super().__init__(value, children)
+
+    def evaluate(self, ST):
+        while self.children[0].evaluate(ST):
+            self.children[1].evaluate(ST)
+    
+class ifNode(Node):
+    def __init__(self, value, children):
+        super().__init__(value, children)
+
+    def evaluate(self, ST):
+        if self.children[0].evaluate(ST):
+            self.children[1].evaluate(ST)
+        elif len(self.children) == 3:
+            self.children[2].evaluate(ST)
+
+class read(Node):
+    def __init__(self, value):
+        super().__init__(value)
+
+    def evaluate(self,ST):
+        return int(input())
+       
     
 
 
@@ -117,11 +160,12 @@ class Tokenizer:
         self.source = source
         self.position = position
         self.next = next
+        self.prohibited =["print", "while", "do", "end", "if", "then", "else", "and", "or", "not"]
 
     def selectNext(self):
         if self.position >= len(self.source):
             self.next = Token("EOF", "")
-        else:
+        else:        
             if self.source[self.position] == "+":
                 self.position += 1
                 self.next = Token("PLUS", "+")
@@ -150,10 +194,10 @@ class Tokenizer:
                 self.selectNext()    
             elif self.source[self.position].isalpha():
                 start = self.position
-                while self.source[self.position].isalpha() or self.source[self.position].isdigit() or self.source[self.position] == "_":
+                while self.position < len(self.source) and (self.source[self.position].isalpha() or self.source[self.position].isdigit() or self.source[self.position] == "_"):
                     self.position += 1
-                if self.source[start:self.position] == "print":
-                    self.next = Token("PRINT", "print")
+                if self.source[start:self.position] in self.prohibited:
+                    self.next = Token(self.source[start:self.position].upper(), self.source[start:self.position])
                 else:
                    self.next = Token("IDENT", self.source[start:self.position])
             elif self.source[self.position] == "\n":
@@ -161,7 +205,16 @@ class Tokenizer:
                 self.next = Token("NEWLINE", "\n")
             elif self.source[self.position] == "=":
                 self.position += 1
-                self.next = Token("EQUAL", "=")	
+                if self.source[self.position] == "=":
+                    self.position += 1
+                    self.next = Token("COMPAREEQUAL", "==")
+                self.next = Token("EQUAL", "=")
+            elif self.source[self.position] == "<":
+                self.position += 1
+                self.next = Token("LESS", "<")
+            elif self.source[self.position] == ">":
+                self.position += 1
+                self.next = Token("GREATER", ">")        
             else:
                 sys.stderr.write("token invalido, posicao: " + str(self.position) + "\n")
                 self.position += 1
@@ -174,13 +227,42 @@ class Parser:
         self.tokenizer = tokenizer
 
     @staticmethod
+    def parseBoolExpression(TOKENIZER):
+        res = Parser.parseBoolTerm(TOKENIZER)
+        while TOKENIZER.next.type == "OR":
+            next = TOKENIZER.selectNext()
+            res = BinOp("or", [res, Parser.parseBoolTerm(TOKENIZER)])
+        return res
+    
+    @staticmethod
+    def parseBoolTerm(TOKENIZER):
+        res = Parser.ParseRelExpression(TOKENIZER)
+        while TOKENIZER.next.type == "AND":
+            next = TOKENIZER.selectNext()
+            res = BinOp("and", [res, Parser.ParseRelExpression(TOKENIZER)])
+        return res
+    
+    @staticmethod
+    def ParseRelExpression(TOKENIZER):
+        res = Parser.parseExpression(TOKENIZER)
+        if TOKENIZER.next.type == "COMPAREEQUAL":
+            next = TOKENIZER.selectNext()
+            res = BinOp("==", [res, Parser.parseExpression(TOKENIZER)])
+        elif TOKENIZER.next.type == "LESS":
+            next = TOKENIZER.selectNext()
+            res = BinOp("<", [res, Parser.parseExpression(TOKENIZER)])
+        elif TOKENIZER.next.type == "GREATER":
+            next = TOKENIZER.selectNext()
+            res = BinOp(">", [res, Parser.parseExpression(TOKENIZER)])
+        return res
+
+    @staticmethod
     def parseBlock(TOKENIZER):
         res = Block("block", [])
         next = TOKENIZER.selectNext()
         while TOKENIZER.next.type != "EOF":
             parsed = Parser.parseStatement(TOKENIZER)
-            res.children.append(parsed)
-          
+            res.children.append(parsed)  
         return res
 
 
@@ -193,16 +275,17 @@ class Parser:
                 sys.stderr.write("token invalido, esperado: EQUAL, recebido: " + TOKENIZER.next.type + "\n")
             else:
                 next = TOKENIZER.selectNext()
-                res.children.append(Parser.parseExpression(TOKENIZER))
+                res.children.append(Parser.parseBoolExpression(TOKENIZER))
             
             
             if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
                 sys.stderr.write("token invalido, esperado: NEWLINE1, recebido: " + TOKENIZER.next.type + "\n")
+
         elif TOKENIZER.next.type == "PRINT":
             next = TOKENIZER.selectNext()
             if TOKENIZER.next.type == "LPAREN":
                 next = TOKENIZER.selectNext()
-                res = Print("print", [Parser.parseExpression(TOKENIZER)])
+                res = Print("print", [Parser.parseBoolExpression(TOKENIZER)])
                 if TOKENIZER.next.type != "RPAREN":
                     sys.stderr.write("token invalido, esperado: RParen, recebido: " + TOKENIZER.next.type + "\n")
                 else:
@@ -212,12 +295,72 @@ class Parser:
             #next = TOKENIZER.selectNext()
             if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
                 sys.stderr.write("token invalido, esperado: NEWLINE2, recebido: " + TOKENIZER.next.type + "\n")
-        elif TOKENIZER.next.type == "NEWLINE":
+        elif TOKENIZER.next.type == "NEWLINE" or TOKENIZER.next.type == "EOF":
             res = NoOp()
             next = TOKENIZER.selectNext()
 
+        elif TOKENIZER.next.type == "IF":
+            next = TOKENIZER.selectNext()
+            condition = Parser.parseBoolExpression(TOKENIZER)
+            bloco = Block("block", [])
+            if TOKENIZER.next.type != "THEN":
+                sys.stderr.write("token invalido, esperado: THEN, recebido: " + TOKENIZER.next.type + "\n")
+            else:
+                next = TOKENIZER.selectNext()
+                if TOKENIZER.next.type != "NEWLINE":
+                    sys.stderr.write("token invalido, esperado: NEWLINE, recebido: " + TOKENIZER.next.type + "\n")
+                else:
+                    next = TOKENIZER.selectNext()
+                    while TOKENIZER.next.type != "END" and TOKENIZER.next.type != "ELSE":
+                    
+                        bloco.children.append(Parser.parseStatement(TOKENIZER))
+                        next = TOKENIZER.selectNext()
+                    if TOKENIZER.next.type == "ELSE": 
+                        next = TOKENIZER.selectNext()
+                        if TOKENIZER.next.type != "NEWLINE":
+                            sys.stderr.write("token invalido, esperado: NEWLINE, recebido: " + TOKENIZER.next.type + "\n")
+                        else:
+                            next = TOKENIZER.selectNext()
+                            blocoelse = Block("block", [])
+                            while TOKENIZER.next.type != "END":
+                                blocoelse.children.append(Parser.parseStatement(TOKENIZER))
+                                next = TOKENIZER.selectNext()
+                            res = ifNode("if", [condition, bloco, blocoelse])
+                            if TOKENIZER.next.type != "END":
+                                sys.stderr.write("token invalido, esperado: END, recebido: " + TOKENIZER.next.type + "\n")
+                            else: 
+                                next = TOKENIZER.selectNext()
+                    elif TOKENIZER.next.type == "END":
+                        next = TOKENIZER.selectNext()
+                        res = ifNode("if", [condition, bloco])
+                    else:
+                        sys.stderr.write("token invalido, esperado: END, ELSE, recebido: " + TOKENIZER.next.type + "\n")
+        
+            if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
+                sys.stderr.write("token invalido, esperado: NEWLINE3, recebido: " + TOKENIZER.next.type + "\n")
+
+        elif TOKENIZER.next.type == "WHILE":
+            next = TOKENIZER.selectNext()
+            condition = Parser.parseBoolExpression(TOKENIZER)
+            if TOKENIZER.next.type != "DO":
+                sys.stderr.write("token invalido, esperado: DO, recebido: " + TOKENIZER.next.type + "\n")
+            else:
+                next = TOKENIZER.selectNext()
+                if TOKENIZER.next.type != "NEWLINE":
+                    sys.stderr.write("token invalido, esperado: NEWLINE, recebido: " + TOKENIZER.next.type + "\n")
+                else:
+                    bloco = Block("block", [])
+                    while TOKENIZER.next.type != "END":
+                        next = TOKENIZER.selectNext()
+                        bloco.children.append(Parser.parseStatement(TOKENIZER))
+                    res = whileNode("while", [condition, bloco])
+                    next = TOKENIZER.selectNext()
+            if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
+                sys.stderr.write("token invalido, esperado: NEWLINE4, recebido: " + TOKENIZER.next.type + "\n")
+        
+
         else:
-            sys.stderr.write("token invalido, esperado: IDENT, PRINT, NEWLINE, recebido: " + TOKENIZER.next.type + "\n")
+            sys.stderr.write("token invalido, esperado: IDENT, PRINT, NEWLINE, IF, WHILE, recebido: " + TOKENIZER.next.type + "\n")
 
         return res
 
@@ -228,7 +371,7 @@ class Parser:
             next = TOKENIZER.selectNext()
         elif TOKENIZER.next.type == "LPAREN":
             next = TOKENIZER.selectNext()
-            res = Parser.parseExpression(TOKENIZER)
+            res = Parser.parseBoolExpression(TOKENIZER)
             if TOKENIZER.next.type != "RPAREN":
                 sys.stderr.write("Syntax error: Unmatched parentheses\n")
             else:
@@ -239,6 +382,21 @@ class Parser:
         elif TOKENIZER.next.type == "MINUS":
             next = TOKENIZER.selectNext()
             res = UnOp("-", [Parser.parseFactor(TOKENIZER)])
+        elif TOKENIZER.next.type == "NOT":
+            next = TOKENIZER.selectNext()
+            res = UnOp("not", [Parser.parseFactor(TOKENIZER)])
+        elif TOKENIZER.next.type == "READ":
+            next = TOKENIZER.selectNext()
+            if TOKENIZER.next.type == "LPAREN":
+                next = TOKENIZER.selectNext()
+                if TOKENIZER.next.type == "RPAREN":
+                    res = read("read")
+                    next = TOKENIZER.selectNext()
+                else:
+                    sys.stderr.write("Syntax error: Unmatched parentheses\n")
+            else:
+                sys.stderr.write("Syntax error: Unplaced parentheses\n")
+               
         elif TOKENIZER.next.type == "IDENT":
             res = Identifier(TOKENIZER.next.value)
             next = TOKENIZER.selectNext()
@@ -246,7 +404,7 @@ class Parser:
             sys.stderr.write("Syntax error: Invalid token at factor\n")
             res = NoOp() 
         return res
-
+    
 
     @staticmethod
     def parseTerm (TOKENIZER):
