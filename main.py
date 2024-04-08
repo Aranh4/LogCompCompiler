@@ -216,11 +216,11 @@ class Tokenizer:
             elif self.source[self.position] == ">":
                 self.position += 1
                 self.next = Token("GREATER", ">")  
-            elif self.source[self.position] == " ":
+            elif self.source[self.position] == " " or self.source[self.position] == "\t":
                 self.position += 1
                 self.selectNext()   
             else:
-                #sys.stderr.write("token invalido, posicao: " + str(self.position) + "\n" + str(self.source[self.position]) + "\n")
+                sys.stderr.write("token invalido, posicao: " + str(self.position) + "\n" + str(self.source[self.position]) + "\n")
                 self.position += 1
                 self.selectNext()
             
