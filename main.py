@@ -160,7 +160,7 @@ class Tokenizer:
         self.source = source
         self.position = position
         self.next = next
-        self.prohibited =["print", "while", "do", "end", "if", "then", "else", "and", "or", "not"]
+        self.prohibited =["print", "while", "do", "end", "if", "then", "else", "and", "or", "not", "read"]
 
     def selectNext(self):
         if self.position >= len(self.source):
@@ -208,15 +208,19 @@ class Tokenizer:
                 if self.source[self.position] == "=":
                     self.position += 1
                     self.next = Token("COMPAREEQUAL", "==")
-                self.next = Token("EQUAL", "=")
+                else:
+                    self.next = Token("EQUAL", "=")
             elif self.source[self.position] == "<":
                 self.position += 1
                 self.next = Token("LESS", "<")
             elif self.source[self.position] == ">":
                 self.position += 1
-                self.next = Token("GREATER", ">")        
+                self.next = Token("GREATER", ">")  
+            elif self.source[self.position] == " ":
+                self.position += 1
+                self.selectNext()   
             else:
-                sys.stderr.write("token invalido, posicao: " + str(self.position) + "\n")
+                #sys.stderr.write("token invalido, posicao: " + str(self.position) + "\n" + str(self.source[self.position]) + "\n")
                 self.position += 1
                 self.selectNext()
             
@@ -280,6 +284,7 @@ class Parser:
             
             if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
                 sys.stderr.write("token invalido, esperado: NEWLINE1, recebido: " + TOKENIZER.next.type + "\n")
+          
 
         elif TOKENIZER.next.type == "PRINT":
             next = TOKENIZER.selectNext()
@@ -303,8 +308,10 @@ class Parser:
             next = TOKENIZER.selectNext()
             condition = Parser.parseBoolExpression(TOKENIZER)
             bloco = Block("block", [])
+            
             if TOKENIZER.next.type != "THEN":
                 sys.stderr.write("token invalido, esperado: THEN, recebido: " + TOKENIZER.next.type + "\n")
+                sys.stderr.write("posicao:"+ str(TOKENIZER.position) + "\n")
             else:
                 next = TOKENIZER.selectNext()
                 if TOKENIZER.next.type != "NEWLINE":
@@ -349,10 +356,13 @@ class Parser:
                 if TOKENIZER.next.type != "NEWLINE":
                     sys.stderr.write("token invalido, esperado: NEWLINE, recebido: " + TOKENIZER.next.type + "\n")
                 else:
+                    next = TOKENIZER.selectNext()
+                    
                     bloco = Block("block", [])
                     while TOKENIZER.next.type != "END":
-                        next = TOKENIZER.selectNext()
+                        
                         bloco.children.append(Parser.parseStatement(TOKENIZER))
+                        next = TOKENIZER.selectNext()
                     res = whileNode("while", [condition, bloco])
                     next = TOKENIZER.selectNext()
             if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
