@@ -300,9 +300,13 @@ class Parser:
             #next = TOKENIZER.selectNext()
             if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
                 sys.stderr.write("token invalido, esperado: NEWLINE2, recebido: " + TOKENIZER.next.type + "\n")
-        elif TOKENIZER.next.type == "NEWLINE" or TOKENIZER.next.type == "EOF":
+        elif TOKENIZER.next.type == "NEWLINE":
+            
             res = NoOp()
             next = TOKENIZER.selectNext()
+
+        # elif TOKENIZER.next.type == "EOF":
+        #     res = NoOp()
 
         elif TOKENIZER.next.type == "IF":
             next = TOKENIZER.selectNext()
@@ -359,12 +363,15 @@ class Parser:
                     next = TOKENIZER.selectNext()
                     
                     bloco = Block("block", [])
-                    while TOKENIZER.next.type != "END":
+                    while TOKENIZER.next.type != "END" and TOKENIZER.next.type != "EOF":
                         
                         bloco.children.append(Parser.parseStatement(TOKENIZER))
                         next = TOKENIZER.selectNext()
-                    res = whileNode("while", [condition, bloco])
-                    next = TOKENIZER.selectNext()
+                    if TOKENIZER.next.type != "END":
+                        sys.stderr.write("token invalido, esperado: END, recebido: " + TOKENIZER.next.type + "\n")
+                    else:
+                        res = whileNode("while", [condition, bloco])
+                        next = TOKENIZER.selectNext()
             if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
                 sys.stderr.write("token invalido, esperado: NEWLINE4, recebido: " + TOKENIZER.next.type + "\n")
         
