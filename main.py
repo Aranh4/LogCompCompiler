@@ -87,17 +87,17 @@ class BinOp(Node):
             if (tipo0 == "string" and tipo1 == "int") or (tipo0 == "int" and tipo1 == "string"):
                 sys.stderr.write("Operacao (>) invalida - Erro de Semântica\n tipos diferentes utilizados\n")
                 return 0
-            return  [valor0 > valor1, "int"]
+            return  [int(valor0 > valor1), "int"]
         elif self.value == '<':
             if (tipo0 == "string" and tipo1 == "int") or (tipo0 == "int" and tipo1 == "string"):
                 sys.stderr.write("Operacao (<) invalida - Erro de Semântica\n tipos diferentes utilizados\n")
                 return 0
-            return [valor0 < valor1, "int"]
+            return [int(valor0 < valor1), "int"]
         elif self.value == '==':
             if (tipo0 == "string" and tipo1 == "int") or (tipo0 == "int" and tipo1 == "string"):
                 sys.stderr.write("Operacao (==) invalida - Erro de Semântica\n tipos diferentes utilizados\n")
                 return 0
-            return [valor0 == valor1, "int"]
+            return [int(valor0 == valor1), "int"]
         elif self.value == 'or':
             if tipo0 == "string" or tipo1 == "string":
                 sys.stderr.write("Operacao (or) invalida - Erro de Semântica\n Esperado: int\n Recebido:" + tipo0 + " " + tipo1 + "\n")
@@ -155,7 +155,10 @@ class Print(Node):
 
     def evaluate(self,ST):
         filho = self.children[0].evaluate(ST)
-        print(filho[0])
+        if filho[1] == "int":
+            print(int(filho[0]))
+        else:
+            print(filho[0])
         
 
 class Assign(Node):
@@ -546,15 +549,15 @@ class Parser:
         while TOKENIZER.next.type == "MULT" or TOKENIZER.next.type == "DIV":
             if TOKENIZER.next.type == "MULT":
                 next = TOKENIZER.selectNext()
-                if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS":
+                if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS" or TOKENIZER.next.type == "IDENT":
                     res = BinOp("*", [res, Parser.parseFactor(TOKENIZER)])
                     #res *= Parser.parseFactor(TOKENIZER)
                 
                 else:
-                    sys.stderr.write("token invalido1")
+                    sys.stderr.write("token invalido" + TOKENIZER.next.type + "\n")
             elif TOKENIZER.next.type == "DIV":
                 next = TOKENIZER.selectNext()
-                if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS":
+                if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS" or TOKENIZER.next.type == "IDENT":
                     #res /= Parser.parseFactor(TOKENIZER)
                     res = BinOp("/", [res, Parser.parseFactor(TOKENIZER)])
                    
@@ -587,7 +590,7 @@ class Parser:
 
             elif TOKENIZER.next.type == "CONCAT":
                 next = TOKENIZER.selectNext()
-                if TOKENIZER.next.type == "STRING" or TOKENIZER.next.type == "IDENT":
+                if TOKENIZER.next.type == "STRING" or TOKENIZER.next.type == "IDENT" or TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN":
                     res = BinOp("..", [res, Parser.parseTerm(TOKENIZER)])
                     
                 else:
