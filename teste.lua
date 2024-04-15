@@ -1,7 +1,8 @@
-
+local x
+local y
+local z = "x: "
 x = 1
-while x < 1 do
-    print(x<1)
-	x = x + 1
-end
+y = x or (1==1)
+print(x + y)
+print(z .. x)
 

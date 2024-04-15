@@ -5,8 +5,17 @@ class SymbolTable:
     def __init__(self):
         self.symbols = {}
     
-    def add(self, symbol, value):
-        self.symbols[symbol] = value
+    def set(self, symbol, value, type):
+        if symbol in self.symbols.keys():
+            self.symbols[symbol] = [value, type]
+        else:
+            sys.stderr.write("Variavel nao declarada\n")
+
+    def create(self, symbol):   
+        if symbol not in self.symbols.keys():     
+            self.symbols[symbol] = None
+        else:
+            sys.stderr.write("Variavel ja declarada\n")
     
     def get(self, symbol):
         return self.symbols[symbol]
@@ -42,24 +51,68 @@ class BinOp(Node):
 
 
     def evaluate(self,ST):
+
+        filho0 = self.children[0].evaluate(ST)
+        filho1 = self.children[1].evaluate(ST)
+        
+        valor0 = filho0[0]
+        tipo0 = filho0[1]
+
+        valor1 = filho1[0]
+        tipo1 = filho1[1]
+
+        
+
         if self.value == '+':
-            return self.children[0].evaluate(ST) + self.children[1].evaluate(ST)
+            if tipo0 == "string" or tipo1 == "string":
+                sys.stderr.write("Operacao (+) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
+                return 0
+            return [int(valor0) + int(valor1), "int"]
         elif self.value == '-':
-            return self.children[0].evaluate(ST) - self.children[1].evaluate(ST)
+            if tipo0 == "string" or tipo1 == "string":
+                sys.stderr.write("Operacao (-) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
+                return 0
+            return [int(valor0) - int(valor1), "int"]
         elif self.value == '*':
-            return self.children[0].evaluate(ST) * self.children[1].evaluate(ST)
+            if tipo0 == "string" or tipo1 == "string":
+                sys.stderr.write("Operacao (*) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
+                return 0
+            return [int(valor0) * int(valor1), "int"]
         elif self.value == '/':
-            return self.children[0].evaluate(ST) / self.children[1].evaluate(ST)
+            if tipo0 == "string" or tipo1 == "string":
+                sys.stderr.write("Operacao (/) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
+                return 0            
+            return [int(valor0) / int(valor1), "int"]
         elif self.value == '>':
-            return self.children[0].evaluate(ST) > self.children[1].evaluate(ST)
+            if (tipo0 == "string" and tipo1 == "int") or (tipo0 == "int" and tipo1 == "string"):
+                sys.stderr.write("Operacao (>) invalida - Erro de Semântica\n tipos diferentes utilizados\n")
+                return 0
+            return  [valor0 > valor1, "int"]
         elif self.value == '<':
-            return self.children[0].evaluate(ST) < self.children[1].evaluate(ST)
+            if (tipo0 == "string" and tipo1 == "int") or (tipo0 == "int" and tipo1 == "string"):
+                sys.stderr.write("Operacao (<) invalida - Erro de Semântica\n tipos diferentes utilizados\n")
+                return 0
+            return [valor0 < valor1, "int"]
         elif self.value == '==':
-            return self.children[0].evaluate(ST) == self.children[1].evaluate(ST)
+            if (tipo0 == "string" and tipo1 == "int") or (tipo0 == "int" and tipo1 == "string"):
+                sys.stderr.write("Operacao (==) invalida - Erro de Semântica\n tipos diferentes utilizados\n")
+                return 0
+            return [valor0 == valor1, "int"]
         elif self.value == 'or':
-            return self.children[0].evaluate(ST) or self.children[1].evaluate(ST)
+            if tipo0 == "string" or tipo1 == "string":
+                sys.stderr.write("Operacao (or) invalida - Erro de Semântica\n Esperado: int\n Recebido:" + tipo0 + " " + tipo1 + "\n")
+                return 0
+            return [valor0 or valor1, "int"]
         elif self.value == 'and':
-            return self.children[0].evaluate(ST) and self.children[1].evaluate(ST)
+            if tipo0 == "string" or tipo1 == "string":
+                sys.stderr.write("Operacao (and) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
+                return 0
+            return [int(valor0) and int(valor1), "int"]
+        elif self.value == '..':
+            return [str(valor0) + str(valor1), "string"]
+        else:
+            sys.stderr.write("Operacao invalida\n Erro de Semântica\n")
+            return 0
         
 
         
@@ -68,18 +121,25 @@ class UnOp(Node):
         super().__init__(value, children)
 
     def evaluate(self,ST):
-        if self.value == '+':
-            return self.children[0].evaluate(ST)
-        elif self.value == '-':
-            return -self.children[0].evaluate(ST)
-        elif self.value == 'not':
-            return not self.children[0].evaluate(ST) 
+        filho = self.children[0].evaluate(ST)
+        valor = filho[0]
+        tipo = filho[1]
+        if tipo == "string":
+            sys.stderr.write("Operacao invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
+            return 0
+        else:
+            if self.value == '+':
+                return [valor, "int"]
+            elif self.value == '-':
+                return [-valor, "int"]
+            elif self.value == 'not':
+                return [not valor, int]
         
 class IntVal(Node):
     def __init__(self, value):
         super().__init__(value)
     def evaluate(self,ST):
-        return int(self.value)
+        return [int(self.value), "int"]
     
 class NoOp(Node):
     def __init__(self):
@@ -89,14 +149,13 @@ class NoOp(Node):
         pass
 
 
-
-
 class Print(Node):
     def __init__(self, value, children):
         super().__init__(value, children)
 
     def evaluate(self,ST):
-        print(int(self.children[0].evaluate(ST)))
+        filho = self.children[0].evaluate(ST)
+        print(filho[0])
         
 
 class Assign(Node):
@@ -104,7 +163,17 @@ class Assign(Node):
         super().__init__(value, children)
 
     def evaluate(self,ST):
-        ST.add(self.children[0].value, self.children[1].evaluate(ST))
+        filho = self.children[1].evaluate(ST)
+        valor = filho[0]
+        tipo = filho[1]
+        ST.set(self.children[0].value, valor, tipo)
+
+class StringVal(Node):
+    def __init__(self, value):
+        super().__init__(value)
+
+    def evaluate(self,ST):
+        return [self.value, "string"]     
 
 class Identifier(Node):
     def __init__(self, value):
@@ -126,7 +195,7 @@ class whileNode(Node):
         super().__init__(value, children)
 
     def evaluate(self, ST):
-        while self.children[0].evaluate(ST):
+        while self.children[0].evaluate(ST)[0]:
             self.children[1].evaluate(ST)
     
 class ifNode(Node):
@@ -134,7 +203,7 @@ class ifNode(Node):
         super().__init__(value, children)
 
     def evaluate(self, ST):
-        if self.children[0].evaluate(ST):
+        if self.children[0].evaluate(ST)[0]:
             self.children[1].evaluate(ST)
         elif len(self.children) == 3:
             self.children[2].evaluate(ST)
@@ -144,8 +213,18 @@ class read(Node):
         super().__init__(value)
 
     def evaluate(self,ST):
-        return int(input())
-       
+        return [int(input()), "int"]
+    
+class Vardec(Node):
+    def __init__(self, value, children):
+        super().__init__(value, children)
+
+    def evaluate(self,ST):
+        ST.create(self.children[0].value)
+        if len(self.children) == 2:
+            filho1 = self.children[1].evaluate(ST)
+            ST.set(self.children[0].value, filho1[0], filho1[1])
+        
     
 
 
@@ -160,7 +239,7 @@ class Tokenizer:
         self.source = source
         self.position = position
         self.next = next
-        self.prohibited =["print", "while", "do", "end", "if", "then", "else", "and", "or", "not", "read"]
+        self.prohibited =["local", "print", "while", "do", "end", "if", "then", "else", "and", "or", "not", "read"]
 
     def selectNext(self):
         if self.position >= len(self.source):
@@ -218,7 +297,21 @@ class Tokenizer:
                 self.next = Token("GREATER", ">")  
             elif self.source[self.position] == " " or self.source[self.position] == "\t":
                 self.position += 1
-                self.selectNext()   
+                self.selectNext()  
+            elif self.source[self.position] == "\"":
+                self.position += 1
+                start = self.position
+                while self.source[self.position] != "\"":
+                    self.position += 1
+                    if self.position >= len(self.source):
+                        sys.stderr.write("Aspas Nao fechadas" + "\n")
+                        break
+                self.next = Token("STRING", self.source[start:self.position])
+                self.position += 1
+            
+            elif self.source[self.position] == "." and self.source[self.position + 1] == ".":
+                self.position += 2               
+                self.next = Token("CONCAT", "..")
             else:
                 sys.stderr.write("token invalido, posicao: " + str(self.position) + "\n" + str(self.source[self.position]) + "\n")
                 self.position += 1
@@ -283,8 +376,23 @@ class Parser:
             
             
             if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
-                sys.stderr.write("token invalido, esperado: NEWLINE1, recebido: " + TOKENIZER.next.type + "\n")
-          
+                sys.stderr.write("token invalido, esperado: NEWLINE11, recebido: " + TOKENIZER.next.type + "\n")
+        
+        elif TOKENIZER.next.type == "LOCAL":
+            next = TOKENIZER.selectNext()
+            if TOKENIZER.next.type == "IDENT":
+                res = Vardec("local", [Identifier(TOKENIZER.next.value)])
+                next = TOKENIZER.selectNext()
+                if TOKENIZER.next.type == "EQUAL":
+                    next = TOKENIZER.selectNext()
+                    res.children.append(Parser.parseBoolExpression(TOKENIZER))
+                
+                if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
+                    sys.stderr.write("token invalido, esperado: NEWLINE12, recebido: " + TOKENIZER.next.type + "\n")
+                    
+            else:
+                sys.stderr.write("token invalido, esperado: IDENT, recebido: " + TOKENIZER.next.type + "\n")
+
 
         elif TOKENIZER.next.type == "PRINT":
             next = TOKENIZER.selectNext()
@@ -417,6 +525,11 @@ class Parser:
         elif TOKENIZER.next.type == "IDENT":
             res = Identifier(TOKENIZER.next.value)
             next = TOKENIZER.selectNext()
+        elif TOKENIZER.next.type == "STRING":
+            res = StringVal(TOKENIZER.next.value)
+            
+            next = TOKENIZER.selectNext()
+            
         else:
             sys.stderr.write("Syntax error: Invalid token at factor\n")
             res = NoOp() 
@@ -455,7 +568,7 @@ class Parser:
     def parseExpression(TOKENIZER):
        
         res = Parser.parseTerm(TOKENIZER)
-        while TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS":
+        while TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS" or TOKENIZER.next.type == "CONCAT":
         
             if TOKENIZER.next.type == "PLUS":
                 next = TOKENIZER.selectNext()
@@ -468,9 +581,17 @@ class Parser:
                 next = TOKENIZER.selectNext()
                 if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS" or TOKENIZER.next.type == "IDENT":
                     res = BinOp("-", [res, Parser.parseTerm(TOKENIZER)])
-                 
+                
                 else:
                     sys.stderr.write("3token invalido esperado: INT, LPAREN, PLUS, MINUS, recebido: " + TOKENIZER.next.type + "\n")
+
+            elif TOKENIZER.next.type == "CONCAT":
+                next = TOKENIZER.selectNext()
+                if TOKENIZER.next.type == "STRING" or TOKENIZER.next.type == "IDENT":
+                    res = BinOp("..", [res, Parser.parseTerm(TOKENIZER)])
+                    
+                else:
+                    sys.stderr.write("4token invalido esperado: STRING, IDENT, recebido: " + TOKENIZER.next.type + "\n")
         return res
 
     def run(code):
