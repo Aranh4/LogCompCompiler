@@ -1,7 +1,7 @@
 # LogCompCompiler
 ![git status]( http://3.129.230.99/svg/Aranh4/LogCompCompiler/)
 
-![imagem](/diagrama.png)
+![imagem](/diagrama.jpg)
 EBNF:
 
 BLOCK = { STATEMENT };
