@@ -1,19 +1,40 @@
 from abc import abstractmethod
 import sys
 
+class Writer:
+    @staticmethod
+    def w(line):
+        with open("output.asm", "a") as file:
+            file.write(line + "\n")
+
+            file.close()
+
+    @staticmethod
+    def clear():
+        with open("output.asm", "w") as file:
+            file.write("")
+    
+
+
+        
+        
+        
+
 class SymbolTable:
     def __init__(self):
         self.symbols = {}
+        self.shift = 0
     
     def set(self, symbol, value, type):
         if symbol in self.symbols.keys():
-            self.symbols[symbol] = [value, type]
+            self.symbols[symbol] = [value, type, self.symbols[symbol][2]]
         else:
             sys.stderr.write("Variavel nao declarada\n")
 
     def create(self, symbol):   
+        self.shift += 4
         if symbol not in self.symbols.keys():     
-            self.symbols[symbol] = None
+            self.symbols[symbol] = [0, "int", self.shift]
         else:
             sys.stderr.write("Variavel ja declarada\n")
     
@@ -34,9 +55,15 @@ class PrePro:
         return code
 
 class Node():
-    def __init__(self, value, children = None):
+    instances = []
+
+    def __init__(self, value, children=None):
         self.value = value
         self.children = children if children is not None else []
+        Node.instances.append(self)
+        self.id = len(Node.instances)
+
+
 
 
 
@@ -53,7 +80,12 @@ class BinOp(Node):
     def evaluate(self,ST):
 
         filho0 = self.children[0].evaluate(ST)
+        Writer.w("PUSH EAX")
+
         filho1 = self.children[1].evaluate(ST)
+        Writer.w("MOV EBX, EAX")
+        Writer.w("POP EAX")
+
         
         valor0 = filho0[0]
         tipo0 = filho0[1]
@@ -64,46 +96,59 @@ class BinOp(Node):
         
 
         if self.value == '+':
+            Writer.w("ADD EAX, EBX")
             if tipo0 == "string" or tipo1 == "string":
                 sys.stderr.write("Operacao (+) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
                 return 0
             return [int(valor0) + int(valor1), "int"]
         elif self.value == '-':
+            Writer.w("SUB EAX, EBX")
             if tipo0 == "string" or tipo1 == "string":
                 sys.stderr.write("Operacao (-) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
                 return 0
             return [int(valor0) - int(valor1), "int"]
         elif self.value == '*':
+            Writer.w("IMUL EAX, EBX")
             if tipo0 == "string" or tipo1 == "string":
                 sys.stderr.write("Operacao (*) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
                 return 0
             return [int(valor0) * int(valor1), "int"]
         elif self.value == '/':
+            Writer.w("IDIV EAX, EBX")
             if tipo0 == "string" or tipo1 == "string":
                 sys.stderr.write("Operacao (/) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
                 return 0            
             return [int(valor0) / int(valor1), "int"]
         elif self.value == '>':
+            Writer.w("CMP EAX, EBX")
+            Writer.w("CALL binop_jg")
+
             if (tipo0 == "string" and tipo1 == "int") or (tipo0 == "int" and tipo1 == "string"):
                 sys.stderr.write("Operacao (>) invalida - Erro de Semântica\n tipos diferentes utilizados\n")
                 return 0
             return  [int(valor0 > valor1), "int"]
         elif self.value == '<':
+            Writer.w("CMP EAX, EBX")
+            Writer.w("CALL binop_jl")
             if (tipo0 == "string" and tipo1 == "int") or (tipo0 == "int" and tipo1 == "string"):
                 sys.stderr.write("Operacao (<) invalida - Erro de Semântica\n tipos diferentes utilizados\n")
                 return 0
             return [int(valor0 < valor1), "int"]
         elif self.value == '==':
+            Writer.w("CMP EAX, EBX")
+            Writer.w("CALL binop_je")
             if (tipo0 == "string" and tipo1 == "int") or (tipo0 == "int" and tipo1 == "string"):
                 sys.stderr.write("Operacao (==) invalida - Erro de Semântica\n tipos diferentes utilizados\n")
                 return 0
             return [int(valor0 == valor1), "int"]
         elif self.value == 'or':
+            Writer.w("OR EAX, EBX")
             if tipo0 == "string" or tipo1 == "string":
                 sys.stderr.write("Operacao (or) invalida - Erro de Semântica\n Esperado: int\n Recebido:" + tipo0 + " " + tipo1 + "\n")
                 return 0
             return [valor0 or valor1, "int"]
         elif self.value == 'and':
+            Writer.w("AND EAX, EBX")
             if tipo0 == "string" or tipo1 == "string":
                 sys.stderr.write("Operacao (and) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
                 return 0
@@ -129,16 +174,20 @@ class UnOp(Node):
             return 0
         else:
             if self.value == '+':
+                   
                 return [valor, "int"]
             elif self.value == '-':
+                Writer.w("NEG EAX")
                 return [-valor, "int"]
             elif self.value == 'not':
+                Writer.w("NOT EAX")
                 return [not valor, int]
         
 class IntVal(Node):
     def __init__(self, value):
         super().__init__(value)
     def evaluate(self,ST):
+        Writer.w("MOV EAX, " + str(self.value))
         return [int(self.value), "int"]
     
 class NoOp(Node):
@@ -155,6 +204,10 @@ class Print(Node):
 
     def evaluate(self,ST):
         filho = self.children[0].evaluate(ST)
+        Writer.w("PUSH EAX")
+        Writer.w("PUSH formatout")
+        Writer.w("CALL printf")
+        Writer.w("ADD ESP, 8")
         if filho[1] == "int":
             print(int(filho[0]))
         else:
@@ -167,6 +220,8 @@ class Assign(Node):
 
     def evaluate(self,ST):
         filho = self.children[1].evaluate(ST)
+        shift = ST.get(self.children[0].value)[2]
+        Writer.w("MOV [EBP - " + str(shift) + "], EAX")
         valor = filho[0]
         tipo = filho[1]
         ST.set(self.children[0].value, valor, tipo)
@@ -183,6 +238,8 @@ class Identifier(Node):
         super().__init__(value)
 
     def evaluate(self,ST):
+        shift = ST.get(self.value)[2]
+        Writer.w("MOV EAX, [EBP - " + str(shift) + "]")
         return ST.get(self.value)
 
 class Block(Node):
@@ -190,6 +247,7 @@ class Block(Node):
         super().__init__(value, children)
 
     def evaluate(self, ST):
+
         for child in self.children:
             child.evaluate(ST)
 
@@ -198,14 +256,37 @@ class whileNode(Node):
         super().__init__(value, children)
 
     def evaluate(self, ST):
-        while self.children[0].evaluate(ST)[0]:
-            self.children[1].evaluate(ST)
+        Writer.w("LOOP_" + str(self.id) + ":")
+        filho0 = self.children[0].evaluate(ST)
+        Writer.w("CMP EAX, False")
+        Writer.w("JE EXIT_" + str(self.id))
+        filho1 = self.children[1].evaluate(ST)
+        Writer.w("JMP LOOP_" + str(self.id))
+        Writer.w("EXIT_" + str(self.id) + ":")
+
+
     
 class ifNode(Node):
     def __init__(self, value, children):
         super().__init__(value, children)
 
     def evaluate(self, ST):
+        filho0 = self.children[0].evaluate(ST)
+        Writer.w("CMP EAX, False")
+        if len(self.children) == 2:
+            Writer.w("JE EXIT_" + str(self.id))
+            self.children[1].evaluate(ST)
+            Writer.w("EXIT_" + str(self.id) + ":")
+        elif len(self.children) == 3:
+            Writer.w("JE ELSE_" + str(self.id))
+            self.children[1].evaluate(ST)
+            Writer.w("JMP EXIT_" + str(self.id))
+            Writer.w("ELSE_" + str(self.id) + ":")
+            self.children[2].evaluate(ST)
+            Writer.w("EXIT_" + str(self.id) + ":")
+            
+        
+
         if self.children[0].evaluate(ST)[0]:
             self.children[1].evaluate(ST)
         elif len(self.children) == 3:
@@ -216,6 +297,11 @@ class read(Node):
         super().__init__(value)
 
     def evaluate(self,ST):
+        Writer.w("PUSH scanint")
+        Writer.w("PUSH formatin")
+        Writer.w("CALL scanf")
+        Writer.w("ADD ESP, 8")
+        Writer.w("MOV EAX, DWORD [scanint]")
         return [int(input()), "int"]
     
 class Vardec(Node):
@@ -224,6 +310,7 @@ class Vardec(Node):
 
     def evaluate(self,ST):
         ST.create(self.children[0].value)
+        Writer.w("PUSH DWORD 0")
         if len(self.children) == 2:
             filho1 = self.children[1].evaluate(ST)
             ST.set(self.children[0].value, filho1[0], filho1[1])
@@ -619,8 +706,18 @@ def main():
     
     parser = Parser.run(code)
     ST = SymbolTable()
+    Writer.clear()
+    with open("cabecalho.txt", "r") as file:
+        cabecalho = file.read()
+        Writer.w(cabecalho)
+        file.close()
+
     resultado = parser.evaluate(ST)
     
+    with open("rodape.txt", "r") as file:
+        rodape = file.read()
+        Writer.w(rodape)
+        file.close()
 
     
 
