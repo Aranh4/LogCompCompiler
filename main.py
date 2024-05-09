@@ -1,5 +1,16 @@
 from abc import abstractmethod
 import sys
+class FuncTable:
+    def __init__(self):
+        self.funcs = {}
+    
+    def set(self, func, value):
+        self.funcs[func] = value
+    
+    def get(self, func):
+        return self.funcs[func]
+
+
 
 class SymbolTable:
     def __init__(self):
@@ -50,10 +61,10 @@ class BinOp(Node):
         super().__init__(value, children)
 
 
-    def evaluate(self,ST):
+    def evaluate(self,ST,FT):
 
-        filho0 = self.children[0].evaluate(ST)
-        filho1 = self.children[1].evaluate(ST)
+        filho0 = self.children[0].evaluate(ST, FT)
+        filho1 = self.children[1].evaluate(ST, FT)
         
         valor0 = filho0[0]
         tipo0 = filho0[1]
@@ -120,8 +131,8 @@ class UnOp(Node):
     def __init__(self, value, children):
         super().__init__(value, children)
 
-    def evaluate(self,ST):
-        filho = self.children[0].evaluate(ST)
+    def evaluate(self,ST, FT):
+        filho = self.children[0].evaluate(ST, FT)
         valor = filho[0]
         tipo = filho[1]
         if tipo == "string":
@@ -138,14 +149,14 @@ class UnOp(Node):
 class IntVal(Node):
     def __init__(self, value):
         super().__init__(value)
-    def evaluate(self,ST):
+    def evaluate(self,ST, FT):
         return [int(self.value), "int"]
     
 class NoOp(Node):
     def __init__(self):
         super().__init__(None, None)
 
-    def evaluate(self,ST):
+    def evaluate(self,ST, FT):
         pass
 
 
@@ -153,8 +164,8 @@ class Print(Node):
     def __init__(self, value, children):
         super().__init__(value, children)
 
-    def evaluate(self,ST):
-        filho = self.children[0].evaluate(ST)
+    def evaluate(self,ST, FT):
+        filho = self.children[0].evaluate(ST, FT)
         if filho[1] == "int":
             print(int(filho[0]))
         else:
@@ -165,70 +176,112 @@ class Assign(Node):
     def __init__(self, value, children):
         super().__init__(value, children)
 
-    def evaluate(self,ST):
-        filho = self.children[1].evaluate(ST)
+    def evaluate(self, ST, FT):
+        filho = self.children[1].evaluate(ST, FT)
+        if filho is None:
+            sys.stderr.write(f"Erro: filho é None na avaliação de atribuição de {self.children[0].value}\n")
+            return
         valor = filho[0]
         tipo = filho[1]
         ST.set(self.children[0].value, valor, tipo)
+
 
 class StringVal(Node):
     def __init__(self, value):
         super().__init__(value)
 
-    def evaluate(self,ST):
+    def evaluate(self,ST, FT):
         return [self.value, "string"]     
 
 class Identifier(Node):
     def __init__(self, value):
         super().__init__(value)
 
-    def evaluate(self,ST):
+    def evaluate(self,ST, FT):
         return ST.get(self.value)
 
 class Block(Node):
     def __init__(self, value, children):
         super().__init__(value, children)
 
-    def evaluate(self, ST):
+    def evaluate(self, ST, FT):
         for child in self.children:
-            child.evaluate(ST)
+            if child.value == "return":
+                return child.evaluate(ST, FT)
+            else:
+                child.evaluate(ST, FT)  
 
 class whileNode(Node):
     def __init__(self, value, children):
         super().__init__(value, children)
 
-    def evaluate(self, ST):
-        while self.children[0].evaluate(ST)[0]:
-            self.children[1].evaluate(ST)
+    def evaluate(self, ST, FT):
+        while self.children[0].evaluate(ST, FT)[0]:
+            self.children[1].evaluate(ST, FT)
     
 class ifNode(Node):
     def __init__(self, value, children):
         super().__init__(value, children)
 
-    def evaluate(self, ST):
-        if self.children[0].evaluate(ST)[0]:
-            self.children[1].evaluate(ST)
+    def evaluate(self, ST, FT):
+        if self.children[0].evaluate(ST, FT)[0]:
+            self.children[1].evaluate(ST, FT)
         elif len(self.children) == 3:
-            self.children[2].evaluate(ST)
+            self.children[2].evaluate(ST, FT)
 
 class read(Node):
     def __init__(self, value):
         super().__init__(value)
 
-    def evaluate(self,ST):
+    def evaluate(self,ST, FT):
         return [int(input()), "int"]
     
 class Vardec(Node):
     def __init__(self, value, children):
         super().__init__(value, children)
 
-    def evaluate(self,ST):
+    def evaluate(self,ST, FT):
         ST.create(self.children[0].value)
         if len(self.children) == 2:
-            filho1 = self.children[1].evaluate(ST)
+            filho1 = self.children[1].evaluate(ST, FT)
             ST.set(self.children[0].value, filho1[0], filho1[1])
+
+class Funcdec(Node):
+    def __init__(self, value, children):
+        super().__init__(value, children)
+
+    def evaluate(self,ST,FT):
+        FT.set(self.value, self)
+
+class FuncCall(Node):
+    def __init__(self, value, children):
+        super().__init__(value, children)
+
+    def evaluate(self,ST,FT):
+        func = FT.get(self.value)
+        if func is None:
+            sys.stderr.write("Funcao nao declarada\n")
+        else:
+            if len(func.children) -2 == len(self.children):
+                localST = SymbolTable()
+                for i in range(len(self.children)):
+                    localST.create(func.children[i+1].value)
+                    localST.set(func.children[i+1].value, self.children[i].evaluate(ST, FT)[0], self.children[i].evaluate(ST, FT)[1])
+                return func.children[-1].evaluate(localST, FT)
+            else:
+                sys.stderr.write(f"Numero de argumentos invalido, esperado:{len(func.children) -2}, obtido: {len(self.children)} \n")
         
-    
+class Return(Node):
+    def __init__(self, value, children):
+        super().__init__(value, children)
+
+    def evaluate(self,ST,FT):
+        return self.children[0].evaluate(ST, FT)
+            
+
+        
+        
+
 
 
 
@@ -242,7 +295,7 @@ class Tokenizer:
         self.source = source
         self.position = position
         self.next = next
-        self.prohibited =["local", "print", "while", "do", "end", "if", "then", "else", "and", "or", "not", "read"]
+        self.prohibited =["local", "print", "while", "do", "end", "if", "then", "else", "and", "or", "not", "read", "function", "return"]
 
     def selectNext(self):
         if self.position >= len(self.source):
@@ -281,7 +334,7 @@ class Tokenizer:
                 if self.source[start:self.position] in self.prohibited:
                     self.next = Token(self.source[start:self.position].upper(), self.source[start:self.position])
                 else:
-                   self.next = Token("IDENT", self.source[start:self.position])
+                    self.next = Token("IDENT", self.source[start:self.position])
             elif self.source[self.position] == "\n":
                 self.position += 1
                 self.next = Token("NEWLINE", "\n")
@@ -315,6 +368,9 @@ class Tokenizer:
             elif self.source[self.position] == "." and self.source[self.position + 1] == ".":
                 self.position += 2               
                 self.next = Token("CONCAT", "..")
+            elif self.source[self.position] == ',':
+                self.position += 1
+                self.next = Token("COMMA", ",")
             else:
                 sys.stderr.write("token invalido, posicao: " + str(self.position) + "\n" + str(self.source[self.position]) + "\n")
                 self.position += 1
@@ -486,6 +542,45 @@ class Parser:
             if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
                 sys.stderr.write("token invalido, esperado: NEWLINE4, recebido: " + TOKENIZER.next.type + "\n")
         
+        elif TOKENIZER.next.type == "FUNCTION":
+            next = TOKENIZER.selectNext()
+            if TOKENIZER.next.type == "IDENT":
+                res = Funcdec(TOKENIZER.next.value, [Identifier(TOKENIZER.next.value)])
+                next = TOKENIZER.selectNext()
+                if TOKENIZER.next.type == "LPAREN":
+                    next = TOKENIZER.selectNext()
+                    while TOKENIZER.next.type != "RPAREN":
+                        if TOKENIZER.next.type == "IDENT":
+                            res.children.append(Identifier(TOKENIZER.next.value))
+                            next = TOKENIZER.selectNext()
+                            if TOKENIZER.next.type == "COMMA":
+                                next = TOKENIZER.selectNext()
+                            elif TOKENIZER.next.type == "RPAREN":
+                                next = TOKENIZER.selectNext()
+                                break
+                            else:
+                                sys.stderr.write("token invalido, esperado: COMMA, RPAREN, recebido: " + TOKENIZER.next.type + "\n")
+                        else:
+                            sys.stderr.write("token invalido, esperado: IDENT, recebido: " + TOKENIZER.next.type + "\n")
+                            break
+                    if TOKENIZER.next.type == "NEWLINE":
+                        next = TOKENIZER.selectNext()
+                        bloco = Block("block", [])
+                        while TOKENIZER.next.type != "END":
+                            bloco.children.append(Parser.parseStatement(TOKENIZER))
+                            next = TOKENIZER.selectNext()
+                        res.children.append(bloco)
+                        next = TOKENIZER.selectNext()
+                    else:
+                        sys.stderr.write("token invalido, esperado: NEWLINE5, recebido: " + TOKENIZER.next.type + "\n")
+                else:
+                    sys.stderr.write("token invalido, esperado: LPAREN, recebido: " + TOKENIZER.next.type + "\n")
+
+        elif TOKENIZER.next.type == "RETURN":
+            next = TOKENIZER.selectNext()
+            res = Return("return", [Parser.parseBoolExpression(TOKENIZER)])
+            if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
+                sys.stderr.write("token invalido, esperado: NEWLINE6, recebido: " + TOKENIZER.next.type + "\n")
 
         else:
             sys.stderr.write("token invalido, esperado: IDENT, PRINT, NEWLINE, IF, WHILE, recebido: " + TOKENIZER.next.type + "\n")
@@ -528,6 +623,19 @@ class Parser:
         elif TOKENIZER.next.type == "IDENT":
             res = Identifier(TOKENIZER.next.value)
             next = TOKENIZER.selectNext()
+            if TOKENIZER.next.type == "LPAREN":
+                next = TOKENIZER.selectNext()
+                res = FuncCall(res.value, [])
+                while TOKENIZER.next.type != "RPAREN":
+                    res.children.append(Parser.parseBoolExpression(TOKENIZER))
+                    if TOKENIZER.next.type == "COMMA":
+                        next = TOKENIZER.selectNext()
+                    elif TOKENIZER.next.type == "RPAREN":
+                        next = TOKENIZER.selectNext()
+                        break
+                    else:
+                        sys.stderr.write("Syntax error: Invalid token at factor\n")
+                        break
         elif TOKENIZER.next.type == "STRING":
             res = StringVal(TOKENIZER.next.value)
             
@@ -619,7 +727,8 @@ def main():
     
     parser = Parser.run(code)
     ST = SymbolTable()
-    resultado = parser.evaluate(ST)
+    FT = FuncTable()
+    resultado = parser.evaluate(ST, FT)
     
 
     
