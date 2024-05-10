@@ -424,19 +424,32 @@ class Parser:
 
     @staticmethod
     def parseStatement(TOKENIZER):
+        res = None
         if TOKENIZER.next.type == "IDENT":
-            res = Assign("=", [Identifier(TOKENIZER.next.value)])
+            next_value = TOKENIZER.next.value
             next = TOKENIZER.selectNext()
-            if TOKENIZER.next.type != "EQUAL":
-                sys.stderr.write("token invalido, esperado: EQUAL, recebido: " + TOKENIZER.next.type + "\n")
-            else:
+            if TOKENIZER.next.type == "EQUAL":
                 next = TOKENIZER.selectNext()
-                res.children.append(Parser.parseBoolExpression(TOKENIZER))
-            
-            
-            if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
-                sys.stderr.write("token invalido, esperado: NEWLINE11, recebido: " + TOKENIZER.next.type + "\n")
-        
+                res = Assign("=", [Identifier(next_value), Parser.parseBoolExpression(TOKENIZER)])
+            elif TOKENIZER.next.type == "LPAREN":
+                next = TOKENIZER.selectNext()
+                res = FuncCall(next_value, [])
+                while TOKENIZER.next.type != "RPAREN":
+                    res.children.append(Parser.parseBoolExpression(TOKENIZER))
+                    if TOKENIZER.next.type == "COMMA":
+                        next = TOKENIZER.selectNext()
+                    elif TOKENIZER.next.type != "RPAREN":
+                        break
+                if TOKENIZER.next.type == "RPAREN":
+                    next = TOKENIZER.selectNext()
+                else:
+                    sys.stderr.write(f"token invalido, esperado: RPAREN, recebido: {TOKENIZER.next.type}\n")
+            else:
+                sys.stderr.write(f"token invalido, esperado: EQUAL ou LPAREN, recebido: {TOKENIZER.next.type}\n")
+
+            if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
+                sys.stderr.write(f"token invalido, esperado: NEWLINE ou EOF, recebido: {TOKENIZER.next.type}\n")
+
         elif TOKENIZER.next.type == "LOCAL":
             next = TOKENIZER.selectNext()
             if TOKENIZER.next.type == "IDENT":
@@ -445,13 +458,11 @@ class Parser:
                 if TOKENIZER.next.type == "EQUAL":
                     next = TOKENIZER.selectNext()
                     res.children.append(Parser.parseBoolExpression(TOKENIZER))
-                
-                if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
-                    sys.stderr.write("token invalido, esperado: NEWLINE12, recebido: " + TOKENIZER.next.type + "\n")
-                    
-            else:
-                sys.stderr.write("token invalido, esperado: IDENT, recebido: " + TOKENIZER.next.type + "\n")
 
+                if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
+                    sys.stderr.write(f"token invalido, esperado: NEWLINE, recebido: {TOKENIZER.next.type}\n")
+            else:
+                sys.stderr.write(f"token invalido, esperado: IDENT, recebido: {TOKENIZER.next.type}\n")
 
         elif TOKENIZER.next.type == "PRINT":
             next = TOKENIZER.selectNext()
@@ -459,44 +470,39 @@ class Parser:
                 next = TOKENIZER.selectNext()
                 res = Print("print", [Parser.parseBoolExpression(TOKENIZER)])
                 if TOKENIZER.next.type != "RPAREN":
-                    sys.stderr.write("token invalido, esperado: RParen, recebido: " + TOKENIZER.next.type + "\n")
+                    sys.stderr.write(f"token invalido, esperado: RPAREN, recebido: {TOKENIZER.next.type}\n")
                 else:
                     next = TOKENIZER.selectNext()
             else:
-                sys.stderr.write("token invalido, esperado: LParen, recebido: " + TOKENIZER.next.type + "\n")
-            #next = TOKENIZER.selectNext()
-            if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
-                sys.stderr.write("token invalido, esperado: NEWLINE2, recebido: " + TOKENIZER.next.type + "\n")
+                sys.stderr.write(f"token invalido, esperado: LPAREN, recebido: {TOKENIZER.next.type}\n")
+
+            if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
+                sys.stderr.write(f"token invalido, esperado: NEWLINE ou EOF, recebido: {TOKENIZER.next.type}\n")
+
         elif TOKENIZER.next.type == "NEWLINE":
-            
             res = NoOp()
             next = TOKENIZER.selectNext()
-
-        # elif TOKENIZER.next.type == "EOF":
-        #     res = NoOp()
 
         elif TOKENIZER.next.type == "IF":
             next = TOKENIZER.selectNext()
             condition = Parser.parseBoolExpression(TOKENIZER)
             bloco = Block("block", [])
-            
+
             if TOKENIZER.next.type != "THEN":
-                sys.stderr.write("token invalido, esperado: THEN, recebido: " + TOKENIZER.next.type + "\n")
-                sys.stderr.write("posicao:"+ str(TOKENIZER.position) + "\n")
+                sys.stderr.write(f"token invalido, esperado: THEN, recebido: {TOKENIZER.next.type}\n")
             else:
                 next = TOKENIZER.selectNext()
                 if TOKENIZER.next.type != "NEWLINE":
-                    sys.stderr.write("token invalido, esperado: NEWLINE, recebido: " + TOKENIZER.next.type + "\n")
+                    sys.stderr.write(f"token invalido, esperado: NEWLINE, recebido: {TOKENIZER.next.type}\n")
                 else:
                     next = TOKENIZER.selectNext()
-                    while TOKENIZER.next.type != "END" and TOKENIZER.next.type != "ELSE":
-                    
+                    while TOKENIZER.next.type not in ("END", "ELSE"):
                         bloco.children.append(Parser.parseStatement(TOKENIZER))
                         next = TOKENIZER.selectNext()
-                    if TOKENIZER.next.type == "ELSE": 
+                    if TOKENIZER.next.type == "ELSE":
                         next = TOKENIZER.selectNext()
                         if TOKENIZER.next.type != "NEWLINE":
-                            sys.stderr.write("token invalido, esperado: NEWLINE, recebido: " + TOKENIZER.next.type + "\n")
+                            sys.stderr.write(f"token invalido, esperado: NEWLINE, recebido: {TOKENIZER.next.type}\n")
                         else:
                             next = TOKENIZER.selectNext()
                             blocoelse = Block("block", [])
@@ -505,43 +511,42 @@ class Parser:
                                 next = TOKENIZER.selectNext()
                             res = ifNode("if", [condition, bloco, blocoelse])
                             if TOKENIZER.next.type != "END":
-                                sys.stderr.write("token invalido, esperado: END, recebido: " + TOKENIZER.next.type + "\n")
-                            else: 
+                                sys.stderr.write(f"token invalido, esperado: END, recebido: {TOKENIZER.next.type}\n")
+                            else:
                                 next = TOKENIZER.selectNext()
                     elif TOKENIZER.next.type == "END":
                         next = TOKENIZER.selectNext()
                         res = ifNode("if", [condition, bloco])
                     else:
-                        sys.stderr.write("token invalido, esperado: END, ELSE, recebido: " + TOKENIZER.next.type + "\n")
-        
-            if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
-                sys.stderr.write("token invalido, esperado: NEWLINE3, recebido: " + TOKENIZER.next.type + "\n")
+                        sys.stderr.write(f"token invalido, esperado: END ou ELSE, recebido: {TOKENIZER.next.type}\n")
+
+            if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
+                sys.stderr.write(f"token invalido, esperado: NEWLINE ou EOF, recebido: {TOKENIZER.next.type}\n")
 
         elif TOKENIZER.next.type == "WHILE":
             next = TOKENIZER.selectNext()
             condition = Parser.parseBoolExpression(TOKENIZER)
             if TOKENIZER.next.type != "DO":
-                sys.stderr.write("token invalido, esperado: DO, recebido: " + TOKENIZER.next.type + "\n")
+                sys.stderr.write(f"token invalido, esperado: DO, recebido: {TOKENIZER.next.type}\n")
             else:
                 next = TOKENIZER.selectNext()
                 if TOKENIZER.next.type != "NEWLINE":
-                    sys.stderr.write("token invalido, esperado: NEWLINE, recebido: " + TOKENIZER.next.type + "\n")
+                    sys.stderr.write(f"token invalido, esperado: NEWLINE, recebido: {TOKENIZER.next.type}\n")
                 else:
                     next = TOKENIZER.selectNext()
-                    
                     bloco = Block("block", [])
-                    while TOKENIZER.next.type != "END" and TOKENIZER.next.type != "EOF":
-                        
+                    while TOKENIZER.next.type not in ("END", "EOF"):
                         bloco.children.append(Parser.parseStatement(TOKENIZER))
                         next = TOKENIZER.selectNext()
                     if TOKENIZER.next.type != "END":
-                        sys.stderr.write("token invalido, esperado: END, recebido: " + TOKENIZER.next.type + "\n")
+                        sys.stderr.write(f"token invalido, esperado: END, recebido: {TOKENIZER.next.type}\n")
                     else:
                         res = whileNode("while", [condition, bloco])
                         next = TOKENIZER.selectNext()
-            if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
-                sys.stderr.write("token invalido, esperado: NEWLINE4, recebido: " + TOKENIZER.next.type + "\n")
-        
+
+            if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
+                sys.stderr.write(f"token invalido, esperado: NEWLINE ou EOF, recebido: {TOKENIZER.next.type}\n")
+
         elif TOKENIZER.next.type == "FUNCTION":
             next = TOKENIZER.selectNext()
             if TOKENIZER.next.type == "IDENT":
@@ -553,37 +558,38 @@ class Parser:
                         if TOKENIZER.next.type == "IDENT":
                             res.children.append(Identifier(TOKENIZER.next.value))
                             next = TOKENIZER.selectNext()
-                            if TOKENIZER.next.type == "COMMA":
-                                next = TOKENIZER.selectNext()
-                            elif TOKENIZER.next.type == "RPAREN":
-                                next = TOKENIZER.selectNext()
-                                break
-                            else:
-                                sys.stderr.write("token invalido, esperado: COMMA, RPAREN, recebido: " + TOKENIZER.next.type + "\n")
-                        else:
-                            sys.stderr.write("token invalido, esperado: IDENT, recebido: " + TOKENIZER.next.type + "\n")
-                            break
-                    if TOKENIZER.next.type == "NEWLINE":
-                        next = TOKENIZER.selectNext()
-                        bloco = Block("block", [])
-                        while TOKENIZER.next.type != "END":
-                            bloco.children.append(Parser.parseStatement(TOKENIZER))
+                        if TOKENIZER.next.type == "COMMA":
                             next = TOKENIZER.selectNext()
-                        res.children.append(bloco)
+                        elif TOKENIZER.next.type != "RPAREN":
+                            break
+                    if TOKENIZER.next.type == "RPAREN":
                         next = TOKENIZER.selectNext()
                     else:
-                        sys.stderr.write("token invalido, esperado: NEWLINE5, recebido: " + TOKENIZER.next.type + "\n")
+                        sys.stderr.write(f"token invalido, esperado: RPAREN, recebido: {TOKENIZER.next.type}\n")
+                if TOKENIZER.next.type == "NEWLINE":
+                    next = TOKENIZER.selectNext()
+                    bloco = Block("block", [])
+                    while TOKENIZER.next.type != "END":
+                        bloco.children.append(Parser.parseStatement(TOKENIZER))
+                        next = TOKENIZER.selectNext()
+                    res.children.append(bloco)
+                    if TOKENIZER.next.type != "END":
+                        sys.stderr.write(f"token invalido, esperado: END, recebido: {TOKENIZER.next.type}\n")
+                    else:
+                        next = TOKENIZER.selectNext()
                 else:
-                    sys.stderr.write("token invalido, esperado: LPAREN, recebido: " + TOKENIZER.next.type + "\n")
+                    sys.stderr.write(f"token invalido, esperado: NEWLINE, recebido: {TOKENIZER.next.type}\n")
+            else:
+                sys.stderr.write(f"token invalido, esperado: IDENT, recebido: {TOKENIZER.next.type}\n")
 
         elif TOKENIZER.next.type == "RETURN":
             next = TOKENIZER.selectNext()
             res = Return("return", [Parser.parseBoolExpression(TOKENIZER)])
-            if TOKENIZER.next.type != "NEWLINE" and TOKENIZER.next.type != "EOF":
-                sys.stderr.write("token invalido, esperado: NEWLINE6, recebido: " + TOKENIZER.next.type + "\n")
+            if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
+                sys.stderr.write(f"token invalido, esperado: NEWLINE ou EOF, recebido: {TOKENIZER.next.type}\n")
 
         else:
-            sys.stderr.write("token invalido, esperado: IDENT, PRINT, NEWLINE, IF, WHILE, recebido: " + TOKENIZER.next.type + "\n")
+            sys.stderr.write(f"token invalido, esperado: IDENT, PRINT, NEWLINE, IF, WHILE, recebido: {TOKENIZER.next.type}\n")
 
         return res
 
@@ -626,16 +632,17 @@ class Parser:
             if TOKENIZER.next.type == "LPAREN":
                 next = TOKENIZER.selectNext()
                 res = FuncCall(res.value, [])
-                while TOKENIZER.next.type != "RPAREN":
-                    res.children.append(Parser.parseBoolExpression(TOKENIZER))
-                    if TOKENIZER.next.type == "COMMA":
-                        next = TOKENIZER.selectNext()
-                    elif TOKENIZER.next.type == "RPAREN":
-                        next = TOKENIZER.selectNext()
-                        break
-                    else:
-                        sys.stderr.write("Syntax error: Invalid token at factor\n")
-                        break
+                if TOKENIZER.next.type != "RPAREN":
+                    while TOKENIZER.next.type != "RPAREN":
+                            res.children.append(Parser.parseBoolExpression(TOKENIZER))
+                                                        
+                            if TOKENIZER.next.type == "COMMA":
+                                next = TOKENIZER.selectNext()
+                            elif TOKENIZER.next.type != "COMMA":
+                                next = TOKENIZER.selectNext()  # Sair do RPAREN
+                                break
+                elif TOKENIZER.next.type == "RPAREN":
+                    next = TOKENIZER.selectNext()
         elif TOKENIZER.next.type == "STRING":
             res = StringVal(TOKENIZER.next.value)
             
