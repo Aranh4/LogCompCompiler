@@ -21,12 +21,14 @@ class SymbolTable:
             self.symbols[symbol] = [value, type]
         else:
             sys.stderr.write("Variavel nao declarada\n")
+            sys.exit(1)
 
     def create(self, symbol):   
         if symbol not in self.symbols.keys():     
             self.symbols[symbol] = None
         else:
             sys.stderr.write("Variavel ja declarada\n")
+            sys.exit(1)
     
     def get(self, symbol):
         return self.symbols[symbol]
@@ -77,52 +79,62 @@ class BinOp(Node):
         if self.value == '+':
             if tipo0 == "string" or tipo1 == "string":
                 sys.stderr.write("Operacao (+) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
+                sys.exit(1)
                 return 0
             return [int(valor0) + int(valor1), "int"]
         elif self.value == '-':
             if tipo0 == "string" or tipo1 == "string":
                 sys.stderr.write("Operacao (-) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
+                sys.exit(1)
                 return 0
             return [int(valor0) - int(valor1), "int"]
         elif self.value == '*':
             if tipo0 == "string" or tipo1 == "string":
                 sys.stderr.write("Operacao (*) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
+                sys.exit(1)
                 return 0
             return [int(valor0) * int(valor1), "int"]
         elif self.value == '/':
             if tipo0 == "string" or tipo1 == "string":
                 sys.stderr.write("Operacao (/) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
+                sys.exit(1)
                 return 0            
             return [int(valor0) / int(valor1), "int"]
         elif self.value == '>':
             if (tipo0 == "string" and tipo1 == "int") or (tipo0 == "int" and tipo1 == "string"):
                 sys.stderr.write("Operacao (>) invalida - Erro de Semântica\n tipos diferentes utilizados\n")
+                sys.exit(1)
                 return 0
             return  [int(valor0 > valor1), "int"]
         elif self.value == '<':
             if (tipo0 == "string" and tipo1 == "int") or (tipo0 == "int" and tipo1 == "string"):
                 sys.stderr.write("Operacao (<) invalida - Erro de Semântica\n tipos diferentes utilizados\n")
+                sys.exit(1)
                 return 0
             return [int(valor0 < valor1), "int"]
         elif self.value == '==':
             if (tipo0 == "string" and tipo1 == "int") or (tipo0 == "int" and tipo1 == "string"):
                 sys.stderr.write("Operacao (==) invalida - Erro de Semântica\n tipos diferentes utilizados\n")
+                sys.exit(1)
                 return 0
             return [int(valor0 == valor1), "int"]
         elif self.value == 'or':
             if tipo0 == "string" or tipo1 == "string":
                 sys.stderr.write("Operacao (or) invalida - Erro de Semântica\n Esperado: int\n Recebido:" + tipo0 + " " + tipo1 + "\n")
+                sys.exit(1)
                 return 0
             return [valor0 or valor1, "int"]
         elif self.value == 'and':
             if tipo0 == "string" or tipo1 == "string":
                 sys.stderr.write("Operacao (and) invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
+                sys.exit(1)
                 return 0
             return [int(valor0) and int(valor1), "int"]
         elif self.value == '..':
             return [str(valor0) + str(valor1), "string"]
         else:
             sys.stderr.write("Operacao invalida\n Erro de Semântica\n")
+            sys.exit(1)
             return 0
         
 
@@ -137,6 +149,7 @@ class UnOp(Node):
         tipo = filho[1]
         if tipo == "string":
             sys.stderr.write("Operacao invalida - Erro de Semântica\n Esperado: int\n Recebido: string\n")
+            sys.exit(1)
             return 0
         else:
             if self.value == '+':
@@ -180,6 +193,7 @@ class Assign(Node):
         filho = self.children[1].evaluate(ST, FT)
         if filho is None:
             sys.stderr.write(f"Erro: filho é None na avaliação de atribuição de {self.children[0].value}\n")
+            sys.exit(1)
             return
         valor = filho[0]
         tipo = filho[1]
@@ -261,6 +275,7 @@ class FuncCall(Node):
         func = FT.get(self.value)
         if func is None:
             sys.stderr.write("Funcao nao declarada\n")
+            sys.exit(1)
         else:
             if len(func.children) -2 == len(self.children):
                 localST = SymbolTable()
@@ -270,6 +285,7 @@ class FuncCall(Node):
                 return func.children[-1].evaluate(localST, FT)
             else:
                 sys.stderr.write(f"Numero de argumentos invalido, esperado:{len(func.children) -2}, obtido: {len(self.children)} \n")
+                sys.exit(1)
         
 class Return(Node):
     def __init__(self, value, children):
@@ -361,6 +377,7 @@ class Tokenizer:
                     self.position += 1
                     if self.position >= len(self.source):
                         sys.stderr.write("Aspas Nao fechadas" + "\n")
+                        sys.exit(1)
                         break
                 self.next = Token("STRING", self.source[start:self.position])
                 self.position += 1
@@ -373,6 +390,7 @@ class Tokenizer:
                 self.next = Token("COMMA", ",")
             else:
                 sys.stderr.write("token invalido, posicao: " + str(self.position) + "\n" + str(self.source[self.position]) + "\n")
+                sys.exit(1)
                 self.position += 1
                 self.selectNext()
             
@@ -444,11 +462,14 @@ class Parser:
                     next = TOKENIZER.selectNext()
                 else:
                     sys.stderr.write(f"token invalido, esperado: RPAREN, recebido: {TOKENIZER.next.type}\n")
+                    sys.exit(1)
             else:
                 sys.stderr.write(f"token invalido, esperado: EQUAL ou LPAREN, recebido: {TOKENIZER.next.type}\n")
+                sys.exit(1)
 
             if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
                 sys.stderr.write(f"token invalido, esperado: NEWLINE ou EOF, recebido: {TOKENIZER.next.type}\n")
+                sys.exit(1)
                 sys.exit(1)
 
         elif TOKENIZER.next.type == "LOCAL":
@@ -462,8 +483,10 @@ class Parser:
 
                 if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
                     sys.stderr.write(f"token invalido, esperado: NEWLINE, recebido: {TOKENIZER.next.type}\n")
+                    sys.exit(1)
             else:
                 sys.stderr.write(f"token invalido, esperado: IDENT, recebido: {TOKENIZER.next.type}\n")
+                sys.exit(1)
 
         elif TOKENIZER.next.type == "PRINT":
             next = TOKENIZER.selectNext()
@@ -472,13 +495,16 @@ class Parser:
                 res = Print("print", [Parser.parseBoolExpression(TOKENIZER)])
                 if TOKENIZER.next.type != "RPAREN":
                     sys.stderr.write(f"token invalido, esperado: RPAREN, recebido: {TOKENIZER.next.type}\n")
+                    sys.exit(1)
                 else:
                     next = TOKENIZER.selectNext()
             else:
                 sys.stderr.write(f"token invalido, esperado: LPAREN, recebido: {TOKENIZER.next.type}\n")
+                sys.exit(1)
 
             if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
                 sys.stderr.write(f"token invalido, esperado: NEWLINE ou EOF, recebido: {TOKENIZER.next.type}\n")
+                sys.exit(1)
 
         elif TOKENIZER.next.type == "NEWLINE":
             res = NoOp()
@@ -491,10 +517,12 @@ class Parser:
 
             if TOKENIZER.next.type != "THEN":
                 sys.stderr.write(f"token invalido, esperado: THEN, recebido: {TOKENIZER.next.type}\n")
+                sys.exit(1)
             else:
                 next = TOKENIZER.selectNext()
                 if TOKENIZER.next.type != "NEWLINE":
                     sys.stderr.write(f"token invalido, esperado: NEWLINE, recebido: {TOKENIZER.next.type}\n")
+                    sys.exit(1)
                 else:
                     next = TOKENIZER.selectNext()
                     while TOKENIZER.next.type not in ("END", "ELSE"):
@@ -504,6 +532,7 @@ class Parser:
                         next = TOKENIZER.selectNext()
                         if TOKENIZER.next.type != "NEWLINE":
                             sys.stderr.write(f"token invalido, esperado: NEWLINE, recebido: {TOKENIZER.next.type}\n")
+                            sys.exit(1)
                         else:
                             next = TOKENIZER.selectNext()
                             blocoelse = Block("block", [])
@@ -513,6 +542,7 @@ class Parser:
                             res = ifNode("if", [condition, bloco, blocoelse])
                             if TOKENIZER.next.type != "END":
                                 sys.stderr.write(f"token invalido, esperado: END, recebido: {TOKENIZER.next.type}\n")
+                                sys.exit(1)
                             else:
                                 next = TOKENIZER.selectNext()
                     elif TOKENIZER.next.type == "END":
@@ -520,19 +550,23 @@ class Parser:
                         res = ifNode("if", [condition, bloco])
                     else:
                         sys.stderr.write(f"token invalido, esperado: END ou ELSE, recebido: {TOKENIZER.next.type}\n")
+                        sys.exit(1)
 
             if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
                 sys.stderr.write(f"token invalido, esperado: NEWLINE ou EOF, recebido: {TOKENIZER.next.type}\n")
+                sys.exit(1)
 
         elif TOKENIZER.next.type == "WHILE":
             next = TOKENIZER.selectNext()
             condition = Parser.parseBoolExpression(TOKENIZER)
             if TOKENIZER.next.type != "DO":
                 sys.stderr.write(f"token invalido, esperado: DO, recebido: {TOKENIZER.next.type}\n")
+                sys.exit(1)
             else:
                 next = TOKENIZER.selectNext()
                 if TOKENIZER.next.type != "NEWLINE":
                     sys.stderr.write(f"token invalido, esperado: NEWLINE, recebido: {TOKENIZER.next.type}\n")
+                    sys.exit(1)
                 else:
                     next = TOKENIZER.selectNext()
                     bloco = Block("block", [])
@@ -541,12 +575,14 @@ class Parser:
                         next = TOKENIZER.selectNext()
                     if TOKENIZER.next.type != "END":
                         sys.stderr.write(f"token invalido, esperado: END, recebido: {TOKENIZER.next.type}\n")
+                        sys.exit(1)
                     else:
                         res = whileNode("while", [condition, bloco])
                         next = TOKENIZER.selectNext()
 
             if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
                 sys.stderr.write(f"token invalido, esperado: NEWLINE ou EOF, recebido: {TOKENIZER.next.type}\n")
+                sys.exit(1)
 
         elif TOKENIZER.next.type == "FUNCTION":
             next = TOKENIZER.selectNext()
@@ -567,6 +603,7 @@ class Parser:
                         next = TOKENIZER.selectNext()
                     else:
                         sys.stderr.write(f"token invalido, esperado: RPAREN, recebido: {TOKENIZER.next.type}\n")
+                        sys.exit(1)
                 if TOKENIZER.next.type == "NEWLINE":
                     next = TOKENIZER.selectNext()
                     bloco = Block("block", [])
@@ -576,18 +613,22 @@ class Parser:
                     res.children.append(bloco)
                     if TOKENIZER.next.type != "END":
                         sys.stderr.write(f"token invalido, esperado: END, recebido: {TOKENIZER.next.type}\n")
+                        sys.exit(1)
                     else:
                         next = TOKENIZER.selectNext()
                 else:
                     sys.stderr.write(f"token invalido, esperado: NEWLINE, recebido: {TOKENIZER.next.type}\n")
+                    sys.exit(1)
             else:
                 sys.stderr.write(f"token invalido, esperado: IDENT, recebido: {TOKENIZER.next.type}\n")
+                sys.exit(1)
 
         elif TOKENIZER.next.type == "RETURN":
             next = TOKENIZER.selectNext()
             res = Return("return", [Parser.parseBoolExpression(TOKENIZER)])
             if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
                 sys.stderr.write(f"token invalido, esperado: NEWLINE ou EOF, recebido: {TOKENIZER.next.type}\n")
+                sys.exit(1)
         elif TOKENIZER.next.type == "EOF":
             res = NoOp()
 
@@ -606,6 +647,7 @@ class Parser:
             res = Parser.parseBoolExpression(TOKENIZER)
             if TOKENIZER.next.type != "RPAREN":
                 sys.stderr.write("Syntax error: Unmatched parentheses\n")
+                sys.exit(1)
             else:
                 next = TOKENIZER.selectNext()
         elif TOKENIZER.next.type == "PLUS":
@@ -626,8 +668,10 @@ class Parser:
                     next = TOKENIZER.selectNext()
                 else:
                     sys.stderr.write("Syntax error: Unmatched parentheses\n")
+                    sys.exit(1)
             else:
                 sys.stderr.write("Syntax error: Unplaced parentheses\n")
+                sys.exit(1)
                
         elif TOKENIZER.next.type == "IDENT":
             res = Identifier(TOKENIZER.next.value)
@@ -654,6 +698,7 @@ class Parser:
         else:
             sys.stderr.write("Syntax error: Invalid token at factor\n")
             res = NoOp() 
+            sys.exit(1)
         return res
     
 
@@ -673,6 +718,7 @@ class Parser:
                 
                 else:
                     sys.stderr.write("token invalido" + TOKENIZER.next.type + "\n")
+                    sys.exit(1)
             elif TOKENIZER.next.type == "DIV":
                 next = TOKENIZER.selectNext()
                 if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS" or TOKENIZER.next.type == "IDENT":
@@ -681,6 +727,7 @@ class Parser:
                    
                 else:
                     sys.stderr.write("token invalido2")
+                    sys.exit(1)
         
   
         return res
@@ -706,6 +753,7 @@ class Parser:
                 
                 else:
                     sys.stderr.write("3token invalido esperado: INT, LPAREN, PLUS, MINUS, recebido: " + TOKENIZER.next.type + "\n")
+                    sys.exit(1)
 
             elif TOKENIZER.next.type == "CONCAT":
                 next = TOKENIZER.selectNext()
@@ -714,6 +762,7 @@ class Parser:
                     
                 else:
                     sys.stderr.write("4token invalido esperado: STRING, IDENT, recebido: " + TOKENIZER.next.type + "\n")
+                    sys.exit(1)
         return res
 
     def run(code):
@@ -724,6 +773,7 @@ class Parser:
         if parser.tokenizer.next.type != "EOF":
             
             sys.stderr.write("token invalido, esperado: EOF, recebido: " + parser.tokenizer.next.type + "\n")
+            sys.exit(1)
         else:
             return result
 

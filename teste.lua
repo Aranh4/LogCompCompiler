@@ -1,7 +1,7 @@
 
 function main()
     local x
-    x = 1+*1
+    x = "abcd
 end
 main()
 
