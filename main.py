@@ -449,6 +449,7 @@ class Parser:
 
             if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
                 sys.stderr.write(f"token invalido, esperado: NEWLINE ou EOF, recebido: {TOKENIZER.next.type}\n")
+                sys.exit(1)
 
         elif TOKENIZER.next.type == "LOCAL":
             next = TOKENIZER.selectNext()
@@ -587,10 +588,12 @@ class Parser:
             res = Return("return", [Parser.parseBoolExpression(TOKENIZER)])
             if TOKENIZER.next.type not in ("NEWLINE", "EOF"):
                 sys.stderr.write(f"token invalido, esperado: NEWLINE ou EOF, recebido: {TOKENIZER.next.type}\n")
+        elif TOKENIZER.next.type == "EOF":
+            res = NoOp()
 
         else:
             sys.stderr.write(f"token invalido, esperado: IDENT, PRINT, NEWLINE, IF, WHILE, recebido: {TOKENIZER.next.type}\n")
-
+            sys.exit(1)
         return res
 
     @staticmethod
@@ -695,6 +698,7 @@ class Parser:
                     
                 else:
                     sys.stderr.write("2token invalido esperado: INT, LPAREN, PLUS, MINUS, recebido: " + TOKENIZER.next.type + "\n")
+                    sys.exit(1)
             elif TOKENIZER.next.type == "MINUS":
                 next = TOKENIZER.selectNext()
                 if TOKENIZER.next.type == "INT" or TOKENIZER.next.type == "LPAREN" or TOKENIZER.next.type == "PLUS" or TOKENIZER.next.type == "MINUS" or TOKENIZER.next.type == "IDENT":
